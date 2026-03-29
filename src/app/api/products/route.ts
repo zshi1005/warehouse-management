@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const search = searchParams.get('search');
     const categoryId = searchParams.get('category_id');
+    const brandId = searchParams.get('brand_id');
     const withStats = searchParams.get('with_stats');
     
     let query = client
@@ -43,6 +44,11 @@ export async function GET(request: NextRequest) {
       .select(`
         *,
         product_categories (
+          id,
+          name,
+          description
+        ),
+        brands (
           id,
           name,
           description
@@ -56,6 +62,10 @@ export async function GET(request: NextRequest) {
     
     if (categoryId) {
       query = query.eq('category_id', parseInt(categoryId));
+    }
+
+    if (brandId) {
+      query = query.eq('brand_id', parseInt(brandId));
     }
     
     const { data, error } = await query;
@@ -75,7 +85,7 @@ export async function GET(request: NextRequest) {
               expireTime: 86400 * 30,
             });
           } catch (e) {
-            console.error('生成图片URL失败:', e);
+            console.error('Failed to generate image URL:', e);
           }
         }
 
@@ -96,7 +106,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ data: productsWithUrls as Product[] });
   } catch (error) {
     return NextResponse.json(
-      { error: '获取产品列表失败' },
+      { error: 'Failed to get products' },
       { status: 500 }
     );
   }
@@ -117,6 +127,11 @@ export async function POST(request: NextRequest) {
           id,
           name,
           description
+        ),
+        brands (
+          id,
+          name,
+          description
         )
       `)
       .single();
@@ -134,14 +149,14 @@ export async function POST(request: NextRequest) {
           expireTime: 86400 * 30,
         });
       } catch (e) {
-        console.error('生成图片URL失败:', e);
+        console.error('Failed to generate image URL:', e);
       }
     }
     
     return NextResponse.json({ data: { ...data, image_url } as Product });
   } catch (error) {
     return NextResponse.json(
-      { error: '创建产品失败' },
+      { error: 'Failed to create product' },
       { status: 500 }
     );
   }

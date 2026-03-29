@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, text, integer, timestamp, jsonb, index, boolean, date } from "drizzle-orm/pg-core"
+import { pgTable, serial, varchar, text, integer, timestamp, jsonb, index, boolean, date, numeric } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 // 系统表（不要删除）
@@ -7,12 +7,15 @@ export const healthCheck = pgTable("health_check", {
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 });
 
-// 产品类别表
+// 产品类别表（支持三级分类）
 export const productCategories = pgTable(
 	"product_categories",
 	{
 		id: serial().primaryKey(),
-		name: varchar("name", { length: 100 }).notNull().unique(),
+		name: varchar("name", { length: 100 }).notNull(),
+		code: varchar("code", { length: 50 }),
+		parent_id: integer("parent_id").references((): any => productCategories.id),
+		level: integer("level").default(1).notNull(), // 1, 2, 3 表示层级
 		description: text("description"),
 		sort_order: integer("sort_order").default(0),
 		is_active: boolean("is_active").default(true).notNull(),
@@ -21,7 +24,27 @@ export const productCategories = pgTable(
 	},
 	(table) => [
 		index("product_categories_name_idx").on(table.name),
+		index("product_categories_parent_id_idx").on(table.parent_id),
+		index("product_categories_level_idx").on(table.level),
 		index("product_categories_sort_order_idx").on(table.sort_order),
+	]
+);
+
+// 品牌表
+export const brands = pgTable(
+	"brands",
+	{
+		id: serial().primaryKey(),
+		name: varchar("name", { length: 100 }).notNull().unique(),
+		description: text("description"),
+		logo_key: text("logo_key"),
+		is_active: boolean("is_active").default(true).notNull(),
+		created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updated_at: timestamp("updated_at", { withTimezone: true }),
+	},
+	(table) => [
+		index("brands_name_idx").on(table.name),
+		index("brands_is_active_idx").on(table.is_active),
 	]
 );
 
@@ -30,8 +53,8 @@ export const warehouseLocations = pgTable(
 	"warehouse_locations",
 	{
 		id: serial().primaryKey(),
-		name: varchar("name", { length: 100 }).notNull().unique(),
-		code: varchar("code", { length: 50 }),
+		name: varchar("name", { length: 100 }).notNull(),
+		code: varchar("code", { length: 50 }).unique(), // 自动生成的编号
 		description: text("description"),
 		sort_order: integer("sort_order").default(0),
 		is_active: boolean("is_active").default(true).notNull(),
@@ -72,6 +95,7 @@ export const products = pgTable(
 		id: serial().primaryKey(),
 		name: varchar("name", { length: 200 }).notNull(),
 		category_id: integer("category_id").references(() => productCategories.id),
+		brand_id: integer("brand_id").references(() => brands.id),
 		specification: varchar("specification", { length: 200 }),
 		model: varchar("model", { length: 100 }),
 		unit: varchar("unit", { length: 20 }).notNull().default('个'),
@@ -85,6 +109,7 @@ export const products = pgTable(
 	(table) => [
 		index("products_name_idx").on(table.name),
 		index("products_category_id_idx").on(table.category_id),
+		index("products_brand_id_idx").on(table.brand_id),
 		index("products_is_active_idx").on(table.is_active),
 	]
 );
@@ -153,26 +178,49 @@ export const inventory = pgTable(
 	]
 );
 
-// 入库单表
+// 入库单主表
 export const stockInOrders = pgTable(
 	"stock_in_orders",
 	{
 		id: serial().primaryKey(),
 		order_no: varchar("order_no", { length: 50 }).notNull().unique(),
-		product_id: integer("product_id").notNull().references(() => products.id),
+		invoice_no: varchar("invoice_no", { length: 100 }), // 发票编号
 		supplier_id: integer("supplier_id").references(() => suppliers.id),
-		quantity: integer("quantity").notNull(),
-		unit_price: text("unit_price"), // 使用text存储，避免浮点精度问题
-		location: varchar("location", { length: 200 }),
+		in_date: date("in_date"), // 入库日期
+		total_quantity: integer("total_quantity").default(0),
+		total_amount: numeric("total_amount", { precision: 12, scale: 2 }), // 总金额
 		notes: text("notes"),
 		created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 		updated_at: timestamp("updated_at", { withTimezone: true }),
 	},
 	(table) => [
 		index("stock_in_orders_order_no_idx").on(table.order_no),
-		index("stock_in_orders_product_id_idx").on(table.product_id),
+		index("stock_in_orders_invoice_no_idx").on(table.invoice_no),
 		index("stock_in_orders_supplier_id_idx").on(table.supplier_id),
+		index("stock_in_orders_in_date_idx").on(table.in_date),
 		index("stock_in_orders_created_at_idx").on(table.created_at),
+	]
+);
+
+// 入库单明细表
+export const stockInOrderItems = pgTable(
+	"stock_in_order_items",
+	{
+		id: serial().primaryKey(),
+		order_id: integer("order_id").notNull().references(() => stockInOrders.id, { onDelete: "cascade" }),
+		product_id: integer("product_id").notNull().references(() => products.id),
+		quantity: integer("quantity").notNull(),
+		unit_price: numeric("unit_price", { precision: 10, scale: 2 }), // 单价
+		amount: numeric("amount", { precision: 12, scale: 2 }), // 金额
+		location_id: integer("location_id").references(() => warehouseLocations.id),
+		location: varchar("location", { length: 200 }),
+		serial_numbers: jsonb("serial_numbers").notNull().default(sql`'[]'::jsonb`),
+		notes: text("notes"),
+		created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("stock_in_order_items_order_id_idx").on(table.order_id),
+		index("stock_in_order_items_product_id_idx").on(table.product_id),
 	]
 );
 

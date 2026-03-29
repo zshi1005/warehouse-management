@@ -14,16 +14,18 @@ import {
   BarChart3,
   FolderOpen,
   MapPin,
-  Tag
+  Tag,
+  Award,
+  FileBarChart
 } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 const navItems = [
   { href: '/', labelKey: 'dashboard', icon: LayoutDashboard },
-  { href: '/dashboard', labelKey: 'dashboard', icon: BarChart3 },
   { href: '/products', labelKey: 'products', icon: Package },
   { href: '/product-categories', labelKey: 'categories', icon: FolderOpen },
+  { href: '/brands', labelKey: 'brands', icon: Award },
   { href: '/warehouse-locations', labelKey: 'warehouseLocations', icon: MapPin },
   { href: '/suppliers', labelKey: 'suppliers', icon: Users },
   { href: '/customers', labelKey: 'customers', icon: UserCheck },
@@ -32,6 +34,7 @@ const navItems = [
   { href: '/stock-out', labelKey: 'stockOut', icon: LogOut },
   { href: '/stock-out-categories', labelKey: 'stockOutCategories', icon: Tag },
   { href: '/stock-transfers', labelKey: 'transfer', icon: ArrowRightLeft },
+  { href: '/reports', labelKey: 'reports', icon: FileBarChart },
 ];
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {

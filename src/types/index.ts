@@ -1,16 +1,43 @@
-// 产品类别类型
+// 品牌类型
+export interface Brand {
+  id: number;
+  name: string;
+  description: string | null;
+  logo_key: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string | null;
+  logo_url?: string;
+}
+
+export interface BrandInsert {
+  name: string;
+  description?: string;
+  logo_key?: string;
+  is_active?: boolean;
+}
+
+// 产品类别类型（支持三级分类）
 export interface ProductCategory {
   id: number;
   name: string;
+  code: string | null;
+  parent_id: number | null;
+  level: number;
   description: string | null;
   sort_order: number;
   is_active: boolean;
   created_at: string;
   updated_at: string | null;
+  children?: ProductCategory[];
+  parent?: ProductCategory;
 }
 
 export interface ProductCategoryInsert {
   name: string;
+  code?: string;
+  parent_id?: number;
+  level?: number;
   description?: string;
   sort_order?: number;
   is_active?: boolean;
@@ -61,6 +88,7 @@ export interface Product {
   id: number;
   name: string;
   category_id: number | null;
+  brand_id: number | null;
   specification: string | null;
   model: string | null;
   unit: string;
@@ -71,12 +99,14 @@ export interface Product {
   created_at: string;
   updated_at: string | null;
   product_categories?: ProductCategory;
+  brands?: Brand;
   image_url?: string;
 }
 
 export interface ProductInsert {
   name: string;
   category_id?: number;
+  brand_id?: number;
   specification?: string;
   model?: string;
   unit?: string;
@@ -158,30 +188,60 @@ export interface InventoryInsert {
   notes?: string;
 }
 
+// 入库单明细类型
+export interface StockInOrderItem {
+  id: number;
+  order_id: number;
+  product_id: number;
+  quantity: number;
+  unit_price: string | null;
+  amount: string | null;
+  location_id: number | null;
+  location: string | null;
+  serial_numbers: string[];
+  notes: string | null;
+  created_at: string;
+  products?: Product;
+  warehouse_locations?: WarehouseLocation;
+}
+
+export interface StockInOrderItemInsert {
+  order_id?: number;
+  product_id: number;
+  quantity: number;
+  unit_price?: string;
+  amount?: string;
+  location_id?: number;
+  location?: string;
+  serial_numbers?: string[];
+  notes?: string;
+}
+
 // 入库单类型
 export interface StockInOrder {
   id: number;
   order_no: string;
-  product_id: number;
+  invoice_no: string | null;
   supplier_id: number | null;
-  quantity: number;
-  unit_price: string | null;
-  location: string | null;
+  in_date: string | null;
+  total_quantity: number;
+  total_amount: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string | null;
-  products?: Product;
   suppliers?: Supplier;
+  items?: StockInOrderItem[];
 }
 
 export interface StockInOrderInsert {
-  order_no: string;
-  product_id: number;
+  order_no?: string;
+  invoice_no?: string;
   supplier_id?: number;
-  quantity: number;
-  unit_price?: string;
-  location?: string;
+  in_date?: string;
+  total_quantity?: number;
+  total_amount?: string;
   notes?: string;
+  items: StockInOrderItemInsert[];
 }
 
 // 出库单明细类型
