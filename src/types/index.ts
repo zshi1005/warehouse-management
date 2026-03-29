@@ -65,10 +65,13 @@ export interface Product {
   model: string | null;
   unit: string;
   description: string | null;
+  image_key: string | null;
+  warning_threshold: number;
   is_active: boolean;
   created_at: string;
   updated_at: string | null;
   product_categories?: ProductCategory;
+  image_url?: string;
 }
 
 export interface ProductInsert {
@@ -78,6 +81,8 @@ export interface ProductInsert {
   model?: string;
   unit?: string;
   description?: string;
+  image_key?: string;
+  warning_threshold?: number;
   is_active?: boolean;
 }
 

@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Plus, Search, Edit2, Trash2, X } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { Plus, Search, Edit2, Trash2, X, Upload, Image as ImageIcon, AlertTriangle } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import type { Product, ProductInsert, ProductCategory } from '@/types';
 
@@ -13,6 +13,9 @@ export default function ProductsPage() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<ProductInsert>({
     name: '',
     category_id: undefined,
@@ -20,6 +23,8 @@ export default function ProductsPage() {
     model: '',
     unit: '个',
     description: '',
+    image_key: '',
+    warning_threshold: 10,
     is_active: true,
   });
 
@@ -34,8 +39,9 @@ export default function ProductsPage() {
       const params = new URLSearchParams();
       if (search) params.append('search', search);
       if (categoryFilter) params.append('category_id', categoryFilter);
+      params.append('with_stats', 'true');
       
-      const url = params.toString() ? `/api/products?${params.toString()}` : '/api/products';
+      const url = params.toString() ? `/api/products?${params.toString()}` : '/api/products?with_stats=true';
       const res = await fetch(url);
       const data = await res.json();
       setProducts(data.data || []);
@@ -56,6 +62,55 @@ export default function ProductsPage() {
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 验证文件类型
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('只支持 JPG、PNG、GIF、WEBP 格式的图片');
+      return;
+    }
+
+    // 验证文件大小（最大 5MB）
+    if (file.size > 5 * 1024 * 1024) {
+      alert('图片大小不能超过 5MB');
+      return;
+    }
+
+    // 预览图片
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setImagePreview(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    // 上传图片
+    try {
+      setUploadingImage(true);
+      const formDataUpload = new FormData();
+      formDataUpload.append('file', file);
+
+      const res = await fetch('/api/upload/image', {
+        method: 'POST',
+        body: formDataUpload,
+      });
+
+      const data = await res.json();
+      if (data.data) {
+        setFormData({ ...formData, image_key: data.data.key });
+      } else {
+        alert('上传图片失败: ' + (data.error || '未知错误'));
+      }
+    } catch (error) {
+      console.error('上传图片失败:', error);
+      alert('上传图片失败');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -66,6 +121,8 @@ export default function ProductsPage() {
       const submitData = {
         ...formData,
         category_id: formData.category_id || null,
+        image_key: formData.image_key || null,
+        warning_threshold: formData.warning_threshold || 10,
       };
       
       const res = await fetch(url, {
@@ -77,6 +134,7 @@ export default function ProductsPage() {
       if (res.ok) {
         setShowModal(false);
         setEditingProduct(null);
+        setImagePreview(null);
         setFormData({
           name: '',
           category_id: undefined,
@@ -84,6 +142,8 @@ export default function ProductsPage() {
           model: '',
           unit: '个',
           description: '',
+          image_key: '',
+          warning_threshold: 10,
           is_active: true,
         });
         fetchProducts();
@@ -102,8 +162,11 @@ export default function ProductsPage() {
       model: product.model || '',
       unit: product.unit,
       description: product.description || '',
+      image_key: product.image_key || '',
+      warning_threshold: product.warning_threshold || 10,
       is_active: product.is_active,
     });
+    setImagePreview(product.image_url || null);
     setShowModal(true);
   };
 
@@ -122,6 +185,7 @@ export default function ProductsPage() {
 
   const openAddModal = () => {
     setEditingProduct(null);
+    setImagePreview(null);
     setFormData({
       name: '',
       category_id: undefined,
@@ -129,15 +193,23 @@ export default function ProductsPage() {
       model: '',
       unit: '个',
       description: '',
+      image_key: '',
+      warning_threshold: 10,
       is_active: true,
     });
     setShowModal(true);
   };
 
-  const getCategoryName = (categoryId: number | null) => {
-    if (!categoryId) return '-';
-    const category = categories.find(c => c.id === categoryId);
-    return category?.name || '-';
+  const isLowStock = (product: Product) => {
+    const stats = (product as any).stats;
+    if (!stats) return false;
+    return stats.in_stock <= product.warning_threshold && stats.in_stock > 0;
+  };
+
+  const isOutOfStock = (product: Product) => {
+    const stats = (product as any).stats;
+    if (!stats) return false;
+    return stats.in_stock === 0;
   };
 
   return (
@@ -187,7 +259,7 @@ export default function ProductsPage() {
           </div>
         ) : products.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-            <Package className="mx-auto h-12 w-12 text-gray-400" />
+            <ImageIcon className="mx-auto h-12 w-12 text-gray-400" />
             <p className="mt-2 text-gray-500">暂无产品数据</p>
           </div>
         ) : (
@@ -196,19 +268,19 @@ export default function ProductsPage() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    产品名称
+                    产品
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     类别
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    规格
+                    规格/型号
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    型号
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    库存状态
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    单位
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    库存预警
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     状态
@@ -219,59 +291,109 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {products.map((product) => (
-                  <tr key={product.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                      {product.description && (
-                        <div className="text-sm text-gray-500">{product.description}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {product.product_categories ? (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700">
-                          {product.product_categories.name}
+                {products.map((product) => {
+                  const stats = (product as any).stats;
+                  const lowStock = isLowStock(product);
+                  const outOfStock = isOutOfStock(product);
+                  
+                  return (
+                    <tr key={product.id} className={`hover:bg-gray-50 ${outOfStock ? 'bg-red-50' : lowStock ? 'bg-yellow-50' : ''}`}>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center">
+                          <div className="h-12 w-12 flex-shrink-0 mr-3 rounded-lg overflow-hidden bg-gray-100 border">
+                            {product.image_url ? (
+                              <img src={product.image_url} alt={product.name} className="h-12 w-12 object-cover" />
+                            ) : (
+                              <div className="h-12 w-12 flex items-center justify-center">
+                                <ImageIcon className="h-6 w-6 text-gray-400" />
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                            {product.description && (
+                              <div className="text-xs text-gray-500 truncate max-w-xs">{product.description}</div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {product.product_categories ? (
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700">
+                            {product.product_categories.name}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-sm">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div>{product.specification || '-'}</div>
+                        <div className="text-xs text-gray-400">{product.model || '-'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        {stats ? (
+                          <div className="text-sm">
+                            <div className="flex items-center justify-center gap-3">
+                              <span className="text-green-600 font-semibold" title="在库数量">
+                                在库: {stats.in_stock}
+                              </span>
+                              <span className="text-orange-600" title="已出库数量">
+                                出库: {stats.out_of_stock}
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              单位: {product.unit}
+                            </div>
+                          </div>
+                        ) : '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <div className="flex items-center justify-center">
+                          {outOfStock ? (
+                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                              缺货
+                            </span>
+                          ) : lowStock ? (
+                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                              库存不足
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-500">
+                              阈值: {product.warning_threshold}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            product.is_active
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {product.is_active ? '启用' : '禁用'}
                         </span>
-                      ) : (
-                        <span className="text-gray-400 text-sm">-</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {product.specification || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {product.model || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {product.unit}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          product.is_active
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        {product.is_active ? '启用' : '禁用'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => handleEdit(product)}
-                        className="text-blue-600 hover:text-blue-900 mr-4"
-                      >
-                        <Edit2 className="h-4 w-4 inline" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(product.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <Trash2 className="h-4 w-4 inline" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => handleEdit(product)}
+                          className="text-blue-600 hover:text-blue-900 mr-4"
+                        >
+                          <Edit2 className="h-4 w-4 inline" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(product.id)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <Trash2 className="h-4 w-4 inline" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -280,7 +402,7 @@ export default function ProductsPage() {
         {/* 添加/编辑产品模态框 */}
         {showModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="bg-white rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold">
                   {editingProduct ? '编辑产品' : '添加产品'}
@@ -292,6 +414,41 @@ export default function ProductsPage() {
 
               <form onSubmit={handleSubmit}>
                 <div className="space-y-4">
+                  {/* 图片上传 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      产品图片
+                    </label>
+                    <div className="flex items-center gap-4">
+                      <div className="h-20 w-20 rounded-lg overflow-hidden bg-gray-100 border flex items-center justify-center">
+                        {imagePreview ? (
+                          <img src={imagePreview} alt="预览" className="h-20 w-20 object-cover" />
+                        ) : (
+                          <ImageIcon className="h-8 w-8 text-gray-400" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          onChange={handleImageUpload}
+                          accept="image/jpeg,image/png,image/gif,image/webp"
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingImage}
+                          className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          <Upload className="h-4 w-4 mr-2" />
+                          {uploadingImage ? '上传中...' : '上传图片'}
+                        </button>
+                        <p className="text-xs text-gray-500 mt-1">支持 JPG、PNG、GIF、WEBP，最大 5MB</p>
+                      </div>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       产品名称 *
@@ -323,40 +480,57 @@ export default function ProductsPage() {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      规格
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.specification}
-                      onChange={(e) => setFormData({ ...formData, specification: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        规格
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.specification}
+                        onChange={(e) => setFormData({ ...formData, specification: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        型号
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.model}
+                        onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      型号
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.model}
-                      onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        单位
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.unit}
+                        onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      单位
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.unit}
-                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        库存预警阈值
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.warning_threshold}
+                        onChange={(e) => setFormData({ ...formData, warning_threshold: parseInt(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
                   </div>
 
                   <div>
@@ -409,24 +583,7 @@ export default function ProductsPage() {
   );
 }
 
+// 添加缺失的导入
 function Package(props: any) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <path d="m7.5 4.27 9 5.15" />
-      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-      <path d="m3.3 7 8.7 5 8.7-5" />
-      <path d="M12 22V12" />
-    </svg>
-  );
+  return null;
 }

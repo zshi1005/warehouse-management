@@ -76,6 +76,8 @@ export const products = pgTable(
 		model: varchar("model", { length: 100 }),
 		unit: varchar("unit", { length: 20 }).notNull().default('个'),
 		description: text("description"),
+		image_key: text("image_key"),
+		warning_threshold: integer("warning_threshold").default(10),
 		is_active: boolean("is_active").default(true).notNull(),
 		created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 		updated_at: timestamp("updated_at", { withTimezone: true }),
