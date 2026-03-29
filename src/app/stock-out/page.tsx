@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Search, X, Calendar, Tag, User, Trash2, Package } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
+import { useLanguage } from '@/i18n/LanguageContext';
 import type { Product, Customer, StockOutOrder, StockOutCategory, StockOutOrderItemInsert } from '@/types';
 
 interface OrderItem {
@@ -13,6 +14,7 @@ interface OrderItem {
 }
 
 export default function StockOutPage() {
+  const { t } = useLanguage();
   const [orders, setOrders] = useState<StockOutOrder[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -43,7 +45,7 @@ export default function StockOutPage() {
       const data = await res.json();
       setOrders(data.data || []);
     } catch (error) {
-      console.error('获取出库单列表失败:', error);
+      console.error('Failed to fetch orders:', error);
     } finally {
       setLoading(false);
     }
@@ -55,7 +57,7 @@ export default function StockOutPage() {
       const data = await res.json();
       setProducts(data.data || []);
     } catch (error) {
-      console.error('获取产品列表失败:', error);
+      console.error('Failed to fetch products:', error);
     }
   };
 
@@ -65,7 +67,7 @@ export default function StockOutPage() {
       const data = await res.json();
       setCustomers(data.data || []);
     } catch (error) {
-      console.error('获取客户列表失败:', error);
+      console.error('Failed to fetch customers:', error);
     }
   };
 
@@ -75,7 +77,7 @@ export default function StockOutPage() {
       const data = await res.json();
       setCategories(data.data || []);
     } catch (error) {
-      console.error('获取出库类别列表失败:', error);
+      console.error('Failed to fetch categories:', error);
     }
   };
 
@@ -96,7 +98,6 @@ export default function StockOutPage() {
     const updated = [...orderItems];
     updated[index] = { ...updated[index], [field]: value };
     
-    // 如果选择产品，自动设置数量为1
     if (field === 'product_id' && value) {
       updated[index].quantity = 1;
       updated[index].serial_numbers = [];
@@ -127,15 +128,14 @@ export default function StockOutPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // 验证
     if (orderItems.length === 0) {
-      alert('请添加至少一个出库产品');
+      alert(t.stockOut.pleaseAddProduct);
       return;
     }
 
     for (const item of orderItems) {
       if (!item.product_id) {
-        alert('请选择所有产品');
+        alert(t.stockOut.pleaseSelectProduct);
         return;
       }
     }
@@ -163,14 +163,14 @@ export default function StockOutPage() {
         setShowModal(false);
         resetForm();
         fetchOrders();
-        alert('出库成功！');
+        alert(t.stockOut.stockOutSuccess);
       } else {
         const error = await res.json();
-        alert(`出库失败: ${error.error}`);
+        alert(`${t.stockOut.stockOutFailed}: ${error.error}`);
       }
     } catch (error) {
-      console.error('创建出库单失败:', error);
-      alert('创建出库单失败');
+      console.error('Failed to create order:', error);
+      alert(t.stockOut.stockOutFailed);
     }
   };
 
@@ -192,6 +192,9 @@ export default function StockOutPage() {
       '销售': 'bg-green-100 text-green-700',
       '内部': 'bg-blue-100 text-blue-700',
       '赠送': 'bg-purple-100 text-purple-700',
+      'Sales': 'bg-green-100 text-green-700',
+      'Internal': 'bg-blue-100 text-blue-700',
+      'Gift': 'bg-purple-100 text-purple-700',
     };
     
     const className = colorMap[category.name] || 'bg-gray-100 text-gray-700';
@@ -210,33 +213,43 @@ export default function StockOutPage() {
     <MainLayout>
       <div>
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">出库管理</h2>
+          <h2 className="text-2xl font-bold text-gray-900">{t.stockOut.title}</h2>
           <button onClick={() => setShowModal(true)} className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-            <Plus className="h-5 w-5 mr-2" />新增出库
+            <Plus className="h-5 w-5 mr-2" />{t.stockOut.addStockOut}
           </button>
         </div>
 
         <div className="mb-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input type="text" placeholder="搜索单号..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
+            <input 
+              type="text" 
+              placeholder={`${t.common.search}...`} 
+              value={search} 
+              onChange={(e) => setSearch(e.target.value)} 
+              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" 
+            />
           </div>
         </div>
 
-        {loading ? <div className="text-center py-12">加载中...</div> : orders.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg border"><p className="text-gray-500">暂无出库单数据</p></div>
+        {loading ? (
+          <div className="text-center py-12">{t.common.loading}</div>
+        ) : orders.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-lg border">
+            <p className="text-gray-500">{t.common.noData}</p>
+          </div>
         ) : (
           <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">出库单号</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">客户</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">出库类别</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">产品明细</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">总数量</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">出货日期</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">创建时间</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.stockOut.orderNo}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.stockOut.customer}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.stockOut.category}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.stockOut.productDetails}</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{t.stockOut.totalQuantity}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.stockOut.outDate}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.common.createdAt}</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -276,7 +289,9 @@ export default function StockOutPage() {
                         </div>
                       ) : '-'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(order.created_at).toLocaleString('zh-CN')}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(order.created_at).toLocaleString()}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -284,49 +299,49 @@ export default function StockOutPage() {
           </div>
         )}
 
-        {/* 新增出库弹窗 */}
+        {/* Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">新增出库</h3>
+                <h3 className="text-lg font-semibold">{t.stockOut.addStockOut}</h3>
                 <button onClick={() => { setShowModal(false); resetForm(); }}>
                   <X className="h-5 w-5 text-gray-500" />
                 </button>
               </div>
               
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* 基本信息 */}
+                {/* Basic Info */}
                 <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      <User className="h-4 w-4 inline mr-1" />客户
+                      <User className="h-4 w-4 inline mr-1" />{t.stockOut.customer}
                     </label>
                     <select 
                       value={formData.customer_id} 
                       onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })} 
                       className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="">请选择客户</option>
+                      <option value="">{t.stockOut.selectCustomer}</option>
                       {customers.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      <Tag className="h-4 w-4 inline mr-1" />出库类别
+                      <Tag className="h-4 w-4 inline mr-1" />{t.stockOut.category}
                     </label>
                     <select 
                       value={formData.category_id} 
                       onChange={(e) => setFormData({ ...formData, category_id: e.target.value })} 
                       className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="">请选择类别</option>
+                      <option value="">{t.stockOut.selectCategory}</option>
                       {categories.filter(c => c.is_active).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      <Calendar className="h-4 w-4 inline mr-1" />出货日期
+                      <Calendar className="h-4 w-4 inline mr-1" />{t.stockOut.outDate}
                     </label>
                     <input 
                       type="date" 
@@ -337,22 +352,22 @@ export default function StockOutPage() {
                   </div>
                 </div>
 
-                {/* 出库产品列表 */}
+                {/* Products */}
                 <div>
                   <div className="flex justify-between items-center mb-2">
-                    <label className="block text-sm font-medium text-gray-700">出库产品</label>
+                    <label className="block text-sm font-medium text-gray-700">{t.stockOut.product}</label>
                     <button
                       type="button"
                       onClick={addOrderItem}
                       className="flex items-center px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                     >
-                      <Plus className="h-4 w-4 mr-1" />添加产品
+                      <Plus className="h-4 w-4 mr-1" />{t.stockOut.addProduct}
                     </button>
                   </div>
 
                   {orderItems.length === 0 ? (
                     <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg text-gray-500">
-                      请点击"添加产品"按钮添加出库产品
+                      {t.stockOut.pleaseAddProduct}
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -365,22 +380,22 @@ export default function StockOutPage() {
                             <div className="flex justify-between items-start mb-3">
                               <div className="flex-1 grid grid-cols-2 gap-4">
                                 <div>
-                                  <label className="block text-xs text-gray-500 mb-1">产品</label>
+                                  <label className="block text-xs text-gray-500 mb-1">{t.stockOut.product}</label>
                                   <select
                                     value={item.product_id}
                                     onChange={(e) => updateOrderItem(index, 'product_id', parseInt(e.target.value) || 0)}
                                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                                   >
-                                    <option value="">选择产品</option>
+                                    <option value="">{t.stockOut.selectProduct}</option>
                                     {products.map((p) => (
                                       <option key={p.id} value={p.id}>
-                                        {p.name} {p.specification || ''} {p.model || ''} (库存: {(p as any).stats?.in_stock || 0})
+                                        {p.name} {p.specification || ''} {p.model || ''} ({t.stockOut.currentStock}: {(p as any).stats?.in_stock || 0})
                                       </option>
                                     ))}
                                   </select>
                                 </div>
                                 <div>
-                                  <label className="block text-xs text-gray-500 mb-1">出库数量</label>
+                                  <label className="block text-xs text-gray-500 mb-1">{t.stockOut.quantity}</label>
                                   <input
                                     type="number"
                                     min="1"
@@ -399,10 +414,10 @@ export default function StockOutPage() {
                               </button>
                             </div>
 
-                            {/* 序列号输入 */}
+                            {/* Serial Numbers */}
                             <div>
                               <label className="block text-xs text-gray-500 mb-1">
-                                序列号（可选，手动填写，每行一个或用逗号分隔）
+                                {t.stockOut.serialOptional}
                               </label>
                               <div className="flex gap-2 mb-2">
                                 <input
@@ -415,7 +430,7 @@ export default function StockOutPage() {
                                       addSerialToItem(index);
                                     }
                                   }}
-                                  placeholder="输入序列号后按回车添加"
+                                  placeholder={t.stockOut.inputSerialPlaceholder}
                                   className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                                 />
                                 <button
@@ -423,11 +438,10 @@ export default function StockOutPage() {
                                   onClick={() => addSerialToItem(index)}
                                   className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 text-sm"
                                 >
-                                  添加
+                                  {t.common.add}
                                 </button>
                               </div>
                               
-                              {/* 已添加的序列号 */}
                               {item.serial_numbers.length > 0 && (
                                 <div className="flex flex-wrap gap-2 p-2 bg-gray-50 rounded-lg">
                                   {item.serial_numbers.map((serial, sIdx) => (
@@ -443,14 +457,14 @@ export default function StockOutPage() {
                                     </span>
                                   ))}
                                   <span className="text-xs text-gray-500 self-center ml-2">
-                                    共 {item.serial_numbers.length} 个序列号
+                                    {item.serial_numbers.length} {t.stockOut.serialNumbers}
                                   </span>
                                 </div>
                               )}
 
                               {selectedProduct && stats && (
                                 <p className="text-xs text-gray-500 mt-1">
-                                  当前库存: {stats.in_stock} {selectedProduct.unit}
+                                  {t.stockOut.currentStock}: {stats.in_stock} {selectedProduct.unit}
                                 </p>
                               )}
                             </div>
@@ -461,9 +475,9 @@ export default function StockOutPage() {
                   )}
                 </div>
 
-                {/* 备注 */}
+                {/* Notes */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t.common.notes}</label>
                   <textarea 
                     value={formData.notes} 
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })} 
@@ -472,15 +486,15 @@ export default function StockOutPage() {
                   />
                 </div>
 
-                {/* 汇总信息 */}
+                {/* Summary */}
                 {orderItems.length > 0 && (
                   <div className="p-4 bg-blue-50 rounded-lg">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">出库产品数:</span>
-                      <span className="font-semibold">{orderItems.length} 种</span>
+                      <span className="text-sm text-gray-600">{t.stockOut.totalProducts}:</span>
+                      <span className="font-semibold">{orderItems.length}</span>
                     </div>
                     <div className="flex justify-between items-center mt-1">
-                      <span className="text-sm text-gray-600">总出库数量:</span>
+                      <span className="text-sm text-gray-600">{t.stockOut.totalQuantity}:</span>
                       <span className="font-bold text-blue-600 text-lg">
                         {orderItems.reduce((sum, item) => sum + item.quantity, 0)}
                       </span>
@@ -494,13 +508,13 @@ export default function StockOutPage() {
                     onClick={() => { setShowModal(false); resetForm(); }} 
                     className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
                   >
-                    取消
+                    {t.common.cancel}
                   </button>
                   <button 
                     type="submit" 
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
                   >
-                    确认出库
+                    {t.stockOut.confirmStockOut}
                   </button>
                 </div>
               </form>

@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 import { Plus, Search, Edit2, Trash2, X } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
+import { useLanguage } from '@/i18n/LanguageContext';
 import type { Supplier, SupplierInsert } from '@/types';
 
 export default function SuppliersPage() {
+  const { t } = useLanguage();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -33,7 +35,7 @@ export default function SuppliersPage() {
       const data = await res.json();
       setSuppliers(data.data || []);
     } catch (error) {
-      console.error('获取供应商列表失败:', error);
+      console.error('Failed to fetch suppliers:', error);
     } finally {
       setLoading(false);
     }
@@ -67,7 +69,7 @@ export default function SuppliersPage() {
         fetchSuppliers();
       }
     } catch (error) {
-      console.error('保存供应商失败:', error);
+      console.error('Failed to save supplier:', error);
     }
   };
 
@@ -86,7 +88,7 @@ export default function SuppliersPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('确定要删除这个供应商吗？')) return;
+    if (!confirm(t.suppliers.deleteConfirm)) return;
     
     try {
       const res = await fetch(`/api/suppliers/${id}`, { method: 'DELETE' });
@@ -94,7 +96,7 @@ export default function SuppliersPage() {
         fetchSuppliers();
       }
     } catch (error) {
-      console.error('删除供应商失败:', error);
+      console.error('Failed to delete supplier:', error);
     }
   };
 
@@ -102,13 +104,13 @@ export default function SuppliersPage() {
     <MainLayout>
       <div>
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">供应商管理</h2>
+          <h2 className="text-2xl font-bold text-gray-900">{t.suppliers.title}</h2>
           <button
             onClick={() => { setEditingSupplier(null); setFormData({ name: '', contact: '', phone: '', email: '', address: '', notes: '', is_active: true }); setShowModal(true); }}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <Plus className="h-5 w-5 mr-2" />
-            添加供应商
+            {t.suppliers.addSupplier}
           </button>
         </div>
 
@@ -117,7 +119,7 @@ export default function SuppliersPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="text"
-              placeholder="搜索供应商名称或联系人..."
+              placeholder={`${t.common.search}...`}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -126,22 +128,22 @@ export default function SuppliersPage() {
         </div>
 
         {loading ? (
-          <div className="text-center py-12">加载中...</div>
+          <div className="text-center py-12">{t.common.loading}</div>
         ) : suppliers.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-lg border">
-            <p className="text-gray-500">暂无供应商数据</p>
+            <p className="text-gray-500">{t.common.noData}</p>
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">供应商名称</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">联系人</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">电话</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">邮箱</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">地址</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">操作</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.suppliers.supplierName}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.suppliers.contact}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.suppliers.phone}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.suppliers.email}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.suppliers.address}</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t.common.actions}</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -171,37 +173,37 @@ export default function SuppliersPage() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">{editingSupplier ? '编辑供应商' : '添加供应商'}</h3>
+                <h3 className="text-lg font-semibold">{editingSupplier ? t.suppliers.editSupplier : t.suppliers.addSupplier}</h3>
                 <button onClick={() => setShowModal(false)}><X className="h-5 w-5 text-gray-500" /></button>
               </div>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">供应商名称 *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t.suppliers.supplierName} *</label>
                   <input type="text" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">联系人</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t.suppliers.contact}</label>
                   <input type="text" value={formData.contact || ''} onChange={(e) => setFormData({ ...formData, contact: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">电话</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t.suppliers.phone}</label>
                   <input type="text" value={formData.phone || ''} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">邮箱</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t.suppliers.email}</label>
                   <input type="email" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">地址</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t.suppliers.address}</label>
                   <textarea value={formData.address || ''} onChange={(e) => setFormData({ ...formData, address: e.target.value })} rows={2} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t.common.notes}</label>
                   <textarea value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} rows={2} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div className="flex justify-end space-x-3">
-                  <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">取消</button>
-                  <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">{editingSupplier ? '保存' : '添加'}</button>
+                  <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">{t.common.cancel}</button>
+                  <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">{editingSupplier ? t.common.save : t.common.add}</button>
                 </div>
               </form>
             </div>

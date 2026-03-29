@@ -16,24 +16,29 @@ import {
   MapPin,
   Tag
 } from 'lucide-react';
+import { useLanguage } from '@/i18n/LanguageContext';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 const navItems = [
-  { href: '/', label: '仪表盘', icon: LayoutDashboard },
-  { href: '/dashboard', label: '驾驶舱', icon: BarChart3 },
-  { href: '/products', label: '产品管理', icon: Package },
-  { href: '/product-categories', label: '产品类别', icon: FolderOpen },
-  { href: '/warehouse-locations', label: '仓库位置', icon: MapPin },
-  { href: '/suppliers', label: '供应商管理', icon: Users },
-  { href: '/customers', label: '客户管理', icon: UserCheck },
-  { href: '/inventory', label: '库存查询', icon: PackageSearch },
-  { href: '/stock-in', label: '入库管理', icon: LogIn },
-  { href: '/stock-out', label: '出库管理', icon: LogOut },
-  { href: '/stock-out-categories', label: '出库类别', icon: Tag },
-  { href: '/stock-transfers', label: '库存转移', icon: ArrowRightLeft },
+  { href: '/', labelKey: 'dashboard', icon: LayoutDashboard },
+  { href: '/dashboard', labelKey: 'dashboard', icon: BarChart3 },
+  { href: '/products', labelKey: 'products', icon: Package },
+  { href: '/product-categories', labelKey: 'categories', icon: FolderOpen },
+  { href: '/warehouse-locations', labelKey: 'warehouseLocations', icon: MapPin },
+  { href: '/suppliers', labelKey: 'suppliers', icon: Users },
+  { href: '/customers', labelKey: 'customers', icon: UserCheck },
+  { href: '/inventory', labelKey: 'inventory', icon: PackageSearch },
+  { href: '/stock-in', labelKey: 'stockIn', icon: LogIn },
+  { href: '/stock-out', labelKey: 'stockOut', icon: LogOut },
+  { href: '/stock-out-categories', labelKey: 'stockOutCategories', icon: Tag },
+  { href: '/stock-transfers', labelKey: 'transfer', icon: ArrowRightLeft },
 ];
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { t, language } = useLanguage();
+
+  const systemName = language === 'zh' ? '仓库管理系统' : 'Warehouse Management System';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -43,8 +48,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <Package className="h-8 w-8 text-blue-600" />
-              <h1 className="ml-3 text-xl font-bold text-gray-900">仓库管理系统</h1>
+              <h1 className="ml-3 text-xl font-bold text-gray-900">{systemName}</h1>
             </div>
+            <LanguageSwitcher />
           </div>
         </div>
       </header>
@@ -57,6 +63,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname === item.href;
+                const label = t.nav[item.labelKey as keyof typeof t.nav] || item.labelKey;
                 
                 return (
                   <Link
@@ -71,7 +78,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                     `}
                   >
                     <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-blue-600' : 'text-gray-400'}`} />
-                    {item.label}
+                    {label}
                   </Link>
                 );
               })}

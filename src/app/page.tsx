@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Package, Users, UserCheck, PackageSearch, TrendingUp, AlertCircle } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 interface Stats {
   totalProducts: number;
@@ -14,6 +15,7 @@ interface Stats {
 }
 
 export default function HomePage() {
+  const { t, language } = useLanguage();
   const [stats, setStats] = useState<Stats>({
     totalProducts: 0,
     totalSuppliers: 0,
@@ -55,29 +57,37 @@ export default function HomePage() {
         transferredCount: inventoryData.filter((item: any) => item.status === 'transferred').length,
       });
     } catch (error) {
-      console.error('获取统计数据失败:', error);
+      console.error('Failed to fetch stats:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const statCards = [
-    { label: '产品总数', value: stats.totalProducts, icon: Package, color: 'blue' },
-    { label: '供应商总数', value: stats.totalSuppliers, icon: Users, color: 'green' },
-    { label: '客户总数', value: stats.totalCustomers, icon: UserCheck, color: 'purple' },
-    { label: '在库数量', value: stats.inStockCount, icon: PackageSearch, color: 'indigo' },
-    { label: '已出库数量', value: stats.outOfStockCount, icon: TrendingUp, color: 'orange' },
-    { label: '已转移数量', value: stats.transferredCount, icon: AlertCircle, color: 'red' },
+    { label: t.dashboard.totalProducts, value: stats.totalProducts, icon: Package, color: 'blue' },
+    { label: t.dashboard.totalSuppliers, value: stats.totalSuppliers, icon: Users, color: 'green' },
+    { label: t.dashboard.totalCustomers, value: stats.totalCustomers, icon: UserCheck, color: 'purple' },
+    { label: language === 'zh' ? '在库数量' : 'In Stock', value: stats.inStockCount, icon: PackageSearch, color: 'indigo' },
+    { label: language === 'zh' ? '已出库数量' : 'Out of Stock', value: stats.outOfStockCount, icon: TrendingUp, color: 'orange' },
+    { label: language === 'zh' ? '已转移数量' : 'Transferred', value: stats.transferredCount, icon: AlertCircle, color: 'red' },
+  ];
+
+  const quickActions = [
+    { href: '/stock-in', label: t.stockIn.addStockIn, icon: Package, color: 'bg-blue-600 hover:bg-blue-700' },
+    { href: '/stock-out', label: t.stockOut.addStockOut, icon: TrendingUp, color: 'bg-green-600 hover:bg-green-700' },
+    { href: '/stock-transfers', label: t.transfer.addTransfer, icon: AlertCircle, color: 'bg-purple-600 hover:bg-purple-700' },
   ];
 
   return (
     <MainLayout>
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">系统概览</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">
+          {language === 'zh' ? '系统概览' : 'System Overview'}
+        </h2>
         
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="text-gray-500">加载中...</div>
+            <div className="text-gray-500">{t.common.loading}</div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -103,31 +113,25 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* 快速操作 */}
+        {/* Quick Actions */}
         <div className="mt-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">快速操作</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            {language === 'zh' ? '快速操作' : 'Quick Actions'}
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <a
-              href="/stock-in"
-              className="flex items-center justify-center px-6 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Package className="mr-2 h-5 w-5" />
-              新增入库
-            </a>
-            <a
-              href="/stock-out"
-              className="flex items-center justify-center px-6 py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-            >
-              <TrendingUp className="mr-2 h-5 w-5" />
-              新增出库
-            </a>
-            <a
-              href="/stock-transfers"
-              className="flex items-center justify-center px-6 py-4 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-            >
-              <AlertCircle className="mr-2 h-5 w-5" />
-              库存转移
-            </a>
+            {quickActions.map((action, index) => {
+              const Icon = action.icon;
+              return (
+                <a
+                  key={index}
+                  href={action.href}
+                  className={`flex items-center justify-center px-6 py-4 text-white rounded-lg transition-colors ${action.color}`}
+                >
+                  <Icon className="mr-2 h-5 w-5" />
+                  {action.label}
+                </a>
+              );
+            })}
           </div>
         </div>
       </div>
