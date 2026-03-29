@@ -1,16 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { S3Storage } from 'coze-coding-dev-sdk';
 import type { Product, ProductInsert } from '@/types';
-
-// 初始化对象存储
-const storage = new S3Storage({
-  endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
-  accessKey: "",
-  secretKey: "",
-  bucketName: process.env.COZE_BUCKET_NAME,
-  region: "cn-beijing",
-});
 
 // 获取产品的库存统计
 async function getProductStats(client: any, productId: number) {
@@ -27,6 +17,13 @@ async function getProductStats(client: any, productId: number) {
   };
 
   return stats;
+}
+
+// 获取图片公开 URL
+function getImagePublicUrl(supabase: any, imageKey: string): string {
+  const bucketName = process.env.SUPABASE_STORAGE_BUCKET || 'product-images';
+  const { data } = supabase.storage.from(bucketName).getPublicUrl(imageKey);
+  return data.publicUrl;
 }
 
 // GET - 获取单个产品
@@ -55,20 +52,13 @@ export async function GET(
     }
     
     if (!data) {
-      return NextResponse.json({ error: '产品不存在' }, { status: 404 });
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
     // 生成图片URL
     let image_url = null;
     if (data.image_key) {
-      try {
-        image_url = await storage.generatePresignedUrl({
-          key: data.image_key,
-          expireTime: 86400 * 30,
-        });
-      } catch (e) {
-        console.error('生成图片URL失败:', e);
-      }
+      image_url = getImagePublicUrl(client, data.image_key);
     }
 
     // 获取库存统计
@@ -77,7 +67,7 @@ export async function GET(
     return NextResponse.json({ data: { ...data, image_url, stats } as Product });
   } catch (error) {
     return NextResponse.json(
-      { error: '获取产品信息失败' },
+      { error: 'Failed to get product' },
       { status: 500 }
     );
   }
@@ -117,20 +107,13 @@ export async function PUT(
     // 生成图片URL
     let image_url = null;
     if (data.image_key) {
-      try {
-        image_url = await storage.generatePresignedUrl({
-          key: data.image_key,
-          expireTime: 86400 * 30,
-        });
-      } catch (e) {
-        console.error('生成图片URL失败:', e);
-      }
+      image_url = getImagePublicUrl(client, data.image_key);
     }
     
     return NextResponse.json({ data: { ...data, image_url } as Product });
   } catch (error) {
     return NextResponse.json(
-      { error: '更新产品失败' },
+      { error: 'Failed to update product' },
       { status: 500 }
     );
   }
@@ -156,7 +139,7 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json(
-      { error: '删除产品失败' },
+      { error: 'Failed to delete product' },
       { status: 500 }
     );
   }

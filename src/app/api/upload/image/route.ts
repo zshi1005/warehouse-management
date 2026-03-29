@@ -1,34 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { S3Storage } from 'coze-coding-dev-sdk';
+import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-// 初始化对象存储
-const storage = new S3Storage({
-  endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
-  accessKey: "",
-  secretKey: "",
-  bucketName: process.env.COZE_BUCKET_NAME,
-  region: "cn-beijing",
-});
-
-// POST - 上传图片
+// POST - 上传图片到 Supabase Storage
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
     
     if (!file) {
-      return NextResponse.json({ error: '请选择要上传的文件' }, { status: 400 });
+      return NextResponse.json({ error: 'Please select a file' }, { status: 400 });
     }
 
     // 验证文件类型
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ error: '只支持 JPG、PNG、GIF、WEBP 格式的图片' }, { status: 400 });
+      return NextResponse.json({ error: 'Only JPG, PNG, GIF, WEBP formats are supported' }, { status: 400 });
     }
 
     // 验证文件大小（最大 5MB）
     if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json({ error: '图片大小不能超过 5MB' }, { status: 400 });
+      return NextResponse.json({ error: 'Image size cannot exceed 5MB' }, { status: 400 });
     }
 
     // 读取文件内容
@@ -39,27 +30,37 @@ export async function POST(request: NextRequest) {
     const ext = file.name.split('.').pop() || 'jpg';
     const fileName = `products/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
 
-    // 上传到对象存储
-    const imageKey = await storage.uploadFile({
-      fileContent: buffer,
-      fileName: fileName,
-      contentType: file.type,
-    });
+    // 获取 Supabase 客户端
+    const supabase = getSupabaseClient();
 
-    // 生成访问URL
-    const imageUrl = await storage.generatePresignedUrl({
-      key: imageKey,
-      expireTime: 86400 * 30, // 30天有效期
-    });
+    // 上传到 Supabase Storage
+    const bucketName = process.env.SUPABASE_STORAGE_BUCKET || 'product-images';
+    
+    const { data, error } = await supabase.storage
+      .from(bucketName)
+      .upload(fileName, buffer, {
+        contentType: file.type,
+        upsert: false,
+      });
+
+    if (error) {
+      console.error('Upload error:', error);
+      return NextResponse.json({ error: 'Failed to upload image' }, { status: 500 });
+    }
+
+    // 获取公开 URL
+    const { data: urlData } = supabase.storage
+      .from(bucketName)
+      .getPublicUrl(data.path);
 
     return NextResponse.json({ 
       data: { 
-        key: imageKey, 
-        url: imageUrl 
+        key: data.path, 
+        url: urlData.publicUrl 
       } 
     });
   } catch (error) {
-    console.error('上传图片失败:', error);
-    return NextResponse.json({ error: '上传图片失败' }, { status: 500 });
+    console.error('Upload image failed:', error);
+    return NextResponse.json({ error: 'Failed to upload image' }, { status: 500 });
   }
 }

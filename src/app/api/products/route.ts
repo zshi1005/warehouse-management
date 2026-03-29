@@ -1,16 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { S3Storage } from 'coze-coding-dev-sdk';
 import type { Product, ProductInsert } from '@/types';
-
-// 初始化对象存储
-const storage = new S3Storage({
-  endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
-  accessKey: "",
-  secretKey: "",
-  bucketName: process.env.COZE_BUCKET_NAME,
-  region: "cn-beijing",
-});
 
 // 获取产品的库存统计
 async function getProductStats(client: any, productId: number) {
@@ -27,6 +17,13 @@ async function getProductStats(client: any, productId: number) {
   };
 
   return stats;
+}
+
+// 获取图片公开 URL
+function getImagePublicUrl(supabase: any, imageKey: string): string {
+  const bucketName = process.env.SUPABASE_STORAGE_BUCKET || 'product-images';
+  const { data } = supabase.storage.from(bucketName).getPublicUrl(imageKey);
+  return data.publicUrl;
 }
 
 // GET - 获取所有产品
@@ -75,35 +72,30 @@ export async function GET(request: NextRequest) {
     }
 
     // 为有图片的产品生成访问URL
-    const productsWithUrls = await Promise.all(
-      (data || []).map(async (product: any) => {
-        let image_url = null;
-        if (product.image_key) {
-          try {
-            image_url = await storage.generatePresignedUrl({
-              key: product.image_key,
-              expireTime: 86400 * 30,
-            });
-          } catch (e) {
-            console.error('Failed to generate image URL:', e);
-          }
-        }
+    const productsWithUrls = (data || []).map((product: any) => {
+      let image_url = null;
+      if (product.image_key) {
+        image_url = getImagePublicUrl(client, product.image_key);
+      }
 
-        // 如果需要库存统计
-        let stats = null;
-        if (withStats === 'true') {
-          stats = await getProductStats(client, product.id);
-        }
+      return {
+        ...product,
+        image_url,
+      };
+    });
 
-        return {
-          ...product,
-          image_url,
-          stats,
-        };
-      })
-    );
+    // 如果需要库存统计
+    let finalData = productsWithUrls;
+    if (withStats === 'true') {
+      finalData = await Promise.all(
+        productsWithUrls.map(async (product: any) => {
+          const stats = await getProductStats(client, product.id);
+          return { ...product, stats };
+        })
+      );
+    }
     
-    return NextResponse.json({ data: productsWithUrls as Product[] });
+    return NextResponse.json({ data: finalData as Product[] });
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to get products' },
@@ -143,14 +135,7 @@ export async function POST(request: NextRequest) {
     // 如果有图片，生成访问URL
     let image_url = null;
     if (data.image_key) {
-      try {
-        image_url = await storage.generatePresignedUrl({
-          key: data.image_key,
-          expireTime: 86400 * 30,
-        });
-      } catch (e) {
-        console.error('Failed to generate image URL:', e);
-      }
+      image_url = getImagePublicUrl(client, data.image_key);
     }
     
     return NextResponse.json({ data: { ...data, image_url } as Product });

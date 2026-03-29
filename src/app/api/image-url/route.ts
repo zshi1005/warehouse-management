@@ -1,33 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { S3Storage } from 'coze-coding-dev-sdk';
+import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-// 初始化对象存储
-const storage = new S3Storage({
-  endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
-  accessKey: "",
-  secretKey: "",
-  bucketName: process.env.COZE_BUCKET_NAME,
-  region: "cn-beijing",
-});
-
-// GET - 获取图片访问URL
-export async function GET(request: NextRequest) {
+// POST - 获取图片访问 URL
+export async function POST(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const key = searchParams.get('key');
+    const { key } = await request.json();
     
     if (!key) {
-      return NextResponse.json({ error: '缺少图片key参数' }, { status: 400 });
+      return NextResponse.json({ error: 'Image key is required' }, { status: 400 });
     }
 
-    const url = await storage.generatePresignedUrl({
-      key: key,
-      expireTime: 86400 * 30, // 30天有效期
-    });
+    const supabase = getSupabaseClient();
+    const bucketName = process.env.SUPABASE_STORAGE_BUCKET || 'product-images';
 
-    return NextResponse.json({ data: { url } });
+    // 获取公开 URL
+    const { data } = supabase.storage
+      .from(bucketName)
+      .getPublicUrl(key);
+
+    return NextResponse.json({ url: data.publicUrl });
   } catch (error) {
-    console.error('获取图片URL失败:', error);
-    return NextResponse.json({ error: '获取图片URL失败' }, { status: 500 });
+    console.error('Get image URL failed:', error);
+    return NextResponse.json({ error: 'Failed to get image URL' }, { status: 500 });
   }
 }
