@@ -297,22 +297,48 @@ export interface StockTransfer {
   product_id: number;
   inventory_id: number;
   serial_number: string;
-  from_location: string | null;
-  to_location: string;
+  from_site_id: number | null;
+  to_site_id: number;
   notes: string | null;
   created_at: string;
   updated_at: string | null;
   products?: Product;
+  from_site?: ConstructionSite;
+  to_site?: ConstructionSite;
 }
 
 export interface StockTransferInsert {
-  transfer_no: string;
+  transfer_no?: string;
   product_id: number;
   inventory_id: number;
   serial_number: string;
-  from_location?: string;
-  to_location: string;
+  from_site_id?: number;
+  to_site_id: number;
   notes?: string;
+}
+
+// 工地类型
+export interface ConstructionSite {
+  id: number;
+  name: string;
+  code: string | null;
+  address: string | null;
+  contact_person: string | null;
+  contact_phone: string | null;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface ConstructionSiteInsert {
+  name: string;
+  code?: string;
+  address?: string;
+  contact_person?: string;
+  contact_phone?: string;
+  description?: string;
+  is_active?: boolean;
 }
 
 // 库存统计

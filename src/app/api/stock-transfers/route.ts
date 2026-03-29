@@ -15,6 +15,8 @@ export async function GET(request: NextRequest) {
     const client = getSupabaseClient();
     const searchParams = request.nextUrl.searchParams;
     const transferNo = searchParams.get('transfer_no');
+    const fromSiteId = searchParams.get('from_site_id');
+    const toSiteId = searchParams.get('to_site_id');
     
     let query = client
       .from('stock_transfers')
@@ -26,12 +28,28 @@ export async function GET(request: NextRequest) {
           specification,
           model,
           unit
+        ),
+        from_site:construction_sites!fk_stock_transfers_from_site (
+          id,
+          name,
+          code
+        ),
+        to_site:construction_sites!fk_stock_transfers_to_site (
+          id,
+          name,
+          code
         )
       `)
       .order('created_at', { ascending: false });
     
     if (transferNo) {
       query = query.ilike('transfer_no', `%${transferNo}%`);
+    }
+    if (fromSiteId) {
+      query = query.eq('from_site_id', parseInt(fromSiteId));
+    }
+    if (toSiteId) {
+      query = query.eq('to_site_id', parseInt(toSiteId));
     }
     
     const { data, error } = await query;
@@ -43,22 +61,28 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ data: data as StockTransfer[] });
   } catch (error) {
     return NextResponse.json(
-      { error: '获取转移单列表失败' },
+      { error: 'Failed to get stock transfers' },
       { status: 500 }
     );
   }
 }
 
-// POST - 创建转移单
+// POST - 创建转移单（从已出库的内部使用设备转移）
 export async function POST(request: NextRequest) {
   try {
     const client = getSupabaseClient();
     const body: Omit<StockTransferInsert, 'transfer_no'> = await request.json();
     
-    // 验证库存记录是否存在
+    // 验证库存记录是否存在且已出库
     const { data: inventoryItem, error: checkError } = await client
       .from('inventory')
-      .select('id, serial_number, status, location')
+      .select(`
+        id, 
+        serial_number, 
+        status, 
+        product_id,
+        products (id, name)
+      `)
       .eq('id', body.inventory_id)
       .maybeSingle();
     
@@ -68,14 +92,44 @@ export async function POST(request: NextRequest) {
     
     if (!inventoryItem) {
       return NextResponse.json(
-        { error: '库存记录不存在' },
+        { error: 'Inventory record not found' },
         { status: 404 }
       );
     }
     
-    if (inventoryItem.status !== 'in_stock') {
+    // 检查是否已出库（只有已出库的设备才能转移）
+    if (inventoryItem.status !== 'out_of_stock') {
       return NextResponse.json(
-        { error: '该库存不在库，无法转移' },
+        { error: 'Only out-of-stock equipment can be transferred' },
+        { status: 400 }
+      );
+    }
+    
+    // 验证来源工地和目标工地
+    if (body.from_site_id) {
+      const { data: fromSite } = await client
+        .from('construction_sites')
+        .select('id, name')
+        .eq('id', body.from_site_id)
+        .maybeSingle();
+      
+      if (!fromSite) {
+        return NextResponse.json(
+          { error: 'Source construction site not found' },
+          { status: 400 }
+        );
+      }
+    }
+    
+    const { data: toSite } = await client
+      .from('construction_sites')
+      .select('id, name')
+      .eq('id', body.to_site_id)
+      .maybeSingle();
+    
+    if (!toSite) {
+      return NextResponse.json(
+        { error: 'Target construction site not found' },
         { status: 400 }
       );
     }
@@ -86,9 +140,13 @@ export async function POST(request: NextRequest) {
     const { data: transfer, error: transferError } = await client
       .from('stock_transfers')
       .insert({
-        ...body,
         transfer_no: transferNo,
-        from_location: inventoryItem.location,
+        product_id: body.product_id,
+        inventory_id: body.inventory_id,
+        serial_number: body.serial_number,
+        from_site_id: body.from_site_id || null,
+        to_site_id: body.to_site_id,
+        notes: body.notes,
       })
       .select(`
         *,
@@ -98,6 +156,16 @@ export async function POST(request: NextRequest) {
           specification,
           model,
           unit
+        ),
+        from_site:construction_sites!fk_stock_transfers_from_site (
+          id,
+          name,
+          code
+        ),
+        to_site:construction_sites!fk_stock_transfers_to_site (
+          id,
+          name,
+          code
         )
       `)
       .single();
@@ -106,12 +174,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: transferError.message }, { status: 500 });
     }
     
-    // 更新库存位置和状态
+    // 更新库存状态为已转移
     const { error: updateError } = await client
       .from('inventory')
       .update({
-        location: body.to_location,
         status: 'transferred',
+        updated_at: new Date().toISOString(),
       })
       .eq('id', body.inventory_id);
     
@@ -124,7 +192,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: transfer as StockTransfer });
   } catch (error) {
     return NextResponse.json(
-      { error: '创建转移单失败' },
+      { error: 'Failed to create stock transfer' },
       { status: 500 }
     );
   }

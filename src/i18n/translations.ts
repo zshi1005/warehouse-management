@@ -49,6 +49,7 @@ export const translations = {
       inventory: '库存查询',
       warehouseLocations: '仓库位置',
       brands: '品牌管理',
+      constructionSites: '工地管理',
       reports: '数据报表',
     },
     // 品牌管理
@@ -257,6 +258,19 @@ export const translations = {
       totalQuantity: '总数量',
       totalAmount: '总金额',
     },
+    // 工地管理
+    constructionSites: {
+      title: '工地管理',
+      addSite: '新增工地',
+      editSite: '编辑工地',
+      siteName: '工地名称',
+      siteCode: '工地编码',
+      address: '工地地址',
+      contact: '联系人',
+      phone: '联系电话',
+      isActive: '是否启用',
+      deleteConfirm: '确定要删除这个工地吗？',
+    },
   },
   en: {
     // Common
@@ -308,6 +322,7 @@ export const translations = {
       inventory: 'Inventory',
       warehouseLocations: 'Warehouse Locations',
       brands: 'Brands',
+      constructionSites: 'Construction Sites',
       reports: 'Reports',
     },
     // Brands
@@ -515,6 +530,19 @@ export const translations = {
       exportFailed: 'Export failed',
       totalQuantity: 'Total Quantity',
       totalAmount: 'Total Amount',
+    },
+    // Construction Sites
+    constructionSites: {
+      title: 'Construction Sites',
+      addSite: 'Add Site',
+      editSite: 'Edit Site',
+      siteName: 'Site Name',
+      siteCode: 'Site Code',
+      address: 'Address',
+      contact: 'Contact',
+      phone: 'Phone',
+      isActive: 'Is Active',
+      deleteConfirm: 'Are you sure you want to delete this site?',
     },
   },
 };

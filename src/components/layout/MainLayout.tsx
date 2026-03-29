@@ -16,7 +16,8 @@ import {
   MapPin,
   Tag,
   Award,
-  FileBarChart
+  FileBarChart,
+  Building2
 } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
@@ -27,6 +28,7 @@ const navItems = [
   { href: '/product-categories', labelKey: 'categories', icon: FolderOpen },
   { href: '/brands', labelKey: 'brands', icon: Award },
   { href: '/warehouse-locations', labelKey: 'warehouseLocations', icon: MapPin },
+  { href: '/construction-sites', labelKey: 'constructionSites', icon: Building2 },
   { href: '/suppliers', labelKey: 'suppliers', icon: Users },
   { href: '/customers', labelKey: 'customers', icon: UserCheck },
   { href: '/inventory', labelKey: 'inventory', icon: PackageSearch },

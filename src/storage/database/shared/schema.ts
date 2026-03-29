@@ -265,7 +265,29 @@ export const stockOutOrderItems = pgTable(
 	]
 );
 
-// 库存转移表
+// 工地表（用于库存转移的来源和目的地）
+export const constructionSites = pgTable(
+	"construction_sites",
+	{
+		id: serial().primaryKey(),
+		name: varchar("name", { length: 200 }).notNull(),
+		code: varchar("code", { length: 50 }),
+		address: text("address"),
+		contact_person: varchar("contact_person", { length: 100 }),
+		contact_phone: varchar("contact_phone", { length: 50 }),
+		description: text("description"),
+		is_active: boolean("is_active").default(true).notNull(),
+		created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updated_at: timestamp("updated_at", { withTimezone: true }),
+	},
+	(table) => [
+		index("construction_sites_name_idx").on(table.name),
+		index("construction_sites_code_idx").on(table.code),
+		index("construction_sites_is_active_idx").on(table.is_active),
+	]
+);
+
+// 库存转移表（从已出库的内部使用设备转移）
 export const stockTransfers = pgTable(
 	"stock_transfers",
 	{
@@ -274,8 +296,8 @@ export const stockTransfers = pgTable(
 		product_id: integer("product_id").notNull().references(() => products.id),
 		inventory_id: integer("inventory_id").notNull().references(() => inventory.id),
 		serial_number: varchar("serial_number", { length: 100 }).notNull(),
-		from_location: varchar("from_location", { length: 200 }),
-		to_location: varchar("to_location", { length: 200 }).notNull(),
+		from_site_id: integer("from_site_id").references(() => constructionSites.id),
+		to_site_id: integer("to_site_id").notNull().references(() => constructionSites.id),
 		notes: text("notes"),
 		created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 		updated_at: timestamp("updated_at", { withTimezone: true }),
@@ -285,6 +307,8 @@ export const stockTransfers = pgTable(
 		index("stock_transfers_product_id_idx").on(table.product_id),
 		index("stock_transfers_inventory_id_idx").on(table.inventory_id),
 		index("stock_transfers_serial_number_idx").on(table.serial_number),
+		index("stock_transfers_from_site_id_idx").on(table.from_site_id),
+		index("stock_transfers_to_site_id_idx").on(table.to_site_id),
 		index("stock_transfers_created_at_idx").on(table.created_at),
 	]
 );
