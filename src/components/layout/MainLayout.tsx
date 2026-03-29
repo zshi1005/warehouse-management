@@ -10,11 +10,13 @@ import {
   LogIn,
   LogOut,
   ArrowRightLeft,
-  LayoutDashboard
+  LayoutDashboard,
+  BarChart3
 } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: '仪表盘', icon: LayoutDashboard },
+  { href: '/dashboard', label: '驾驶舱', icon: BarChart3 },
   { href: '/products', label: '产品管理', icon: Package },
   { href: '/suppliers', label: '供应商管理', icon: Users },
   { href: '/customers', label: '客户管理', icon: UserCheck },
