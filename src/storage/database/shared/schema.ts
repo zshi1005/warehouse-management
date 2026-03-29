@@ -182,24 +182,38 @@ export const stockOutOrders = pgTable(
 	{
 		id: serial().primaryKey(),
 		order_no: varchar("order_no", { length: 50 }).notNull().unique(),
-		product_id: integer("product_id").notNull().references(() => products.id),
 		customer_id: integer("customer_id").references(() => customers.id),
 		category_id: integer("category_id").references(() => stockOutCategories.id),
 		out_date: date("out_date"),
-		quantity: integer("quantity").notNull(),
-		serial_numbers: jsonb("serial_numbers").notNull(), // 存储序列号数组
-		location: varchar("location", { length: 200 }),
+		total_quantity: integer("total_quantity").default(0),
 		notes: text("notes"),
 		created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 		updated_at: timestamp("updated_at", { withTimezone: true }),
 	},
 	(table) => [
 		index("stock_out_orders_order_no_idx").on(table.order_no),
-		index("stock_out_orders_product_id_idx").on(table.product_id),
 		index("stock_out_orders_customer_id_idx").on(table.customer_id),
 		index("stock_out_orders_category_id_idx").on(table.category_id),
 		index("stock_out_orders_out_date_idx").on(table.out_date),
 		index("stock_out_orders_created_at_idx").on(table.created_at),
+	]
+);
+
+// 出库单明细表
+export const stockOutOrderItems = pgTable(
+	"stock_out_order_items",
+	{
+		id: serial().primaryKey(),
+		order_id: integer("order_id").notNull().references(() => stockOutOrders.id, { onDelete: "cascade" }),
+		product_id: integer("product_id").notNull().references(() => products.id),
+		quantity: integer("quantity").notNull(),
+		serial_numbers: jsonb("serial_numbers").notNull().default(sql`'[]'::jsonb`),
+		notes: text("notes"),
+		created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("stock_out_order_items_order_id_idx").on(table.order_id),
+		index("stock_out_order_items_product_id_idx").on(table.product_id),
 	]
 );
 

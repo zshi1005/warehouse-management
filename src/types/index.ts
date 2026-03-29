@@ -184,35 +184,50 @@ export interface StockInOrderInsert {
   notes?: string;
 }
 
+// 出库单明细类型
+export interface StockOutOrderItem {
+  id: number;
+  order_id: number;
+  product_id: number;
+  quantity: number;
+  serial_numbers: string[];
+  notes: string | null;
+  created_at: string;
+  products?: Product;
+}
+
+export interface StockOutOrderItemInsert {
+  order_id?: number;
+  product_id: number;
+  quantity: number;
+  serial_numbers: string[];
+  notes?: string;
+}
+
 // 出库单类型
 export interface StockOutOrder {
   id: number;
   order_no: string;
-  product_id: number;
   customer_id: number | null;
   category_id: number | null;
   out_date: string | null;
-  quantity: number;
-  serial_numbers: string[];
-  location: string | null;
+  total_quantity: number;
   notes: string | null;
   created_at: string;
   updated_at: string | null;
-  products?: Product;
   customers?: Customer;
   stock_out_categories?: StockOutCategory;
+  items?: StockOutOrderItem[];
 }
 
 export interface StockOutOrderInsert {
   order_no?: string;
-  product_id: number;
   customer_id?: number;
   category_id?: number;
   out_date?: string;
-  quantity: number;
-  serial_numbers: string[];
-  location?: string;
+  total_quantity?: number;
   notes?: string;
+  items: StockOutOrderItemInsert[];
 }
 
 // 库存转移类型
