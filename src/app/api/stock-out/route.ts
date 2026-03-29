@@ -32,6 +32,11 @@ export async function GET(request: NextRequest) {
           name,
           contact,
           phone
+        ),
+        stock_out_categories (
+          id,
+          name,
+          code
         )
       `)
       .order('created_at', { ascending: false });
@@ -108,6 +113,11 @@ export async function POST(request: NextRequest) {
           name,
           contact,
           phone
+        ),
+        stock_out_categories (
+          id,
+          name,
+          code
         )
       `)
       .single();

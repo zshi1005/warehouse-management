@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
     const productId = searchParams.get('product_id');
     const status = searchParams.get('status');
     const serialNumber = searchParams.get('serial_number');
+    const locationId = searchParams.get('location_id');
     
     let query = client
       .from('inventory')
@@ -21,6 +22,11 @@ export async function GET(request: NextRequest) {
           specification,
           model,
           unit
+        ),
+        warehouse_locations (
+          id,
+          name,
+          code
         )
       `)
       .order('created_at', { ascending: false });
@@ -35,6 +41,10 @@ export async function GET(request: NextRequest) {
     
     if (serialNumber) {
       query = query.ilike('serial_number', `%${serialNumber}%`);
+    }
+
+    if (locationId) {
+      query = query.eq('location_id', parseInt(locationId));
     }
     
     const { data, error } = await query;
@@ -69,6 +79,11 @@ export async function POST(request: NextRequest) {
           specification,
           model,
           unit
+        ),
+        warehouse_locations (
+          id,
+          name,
+          code
         )
       `)
       .single();

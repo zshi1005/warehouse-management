@@ -16,6 +16,46 @@ export interface ProductCategoryInsert {
   is_active?: boolean;
 }
 
+// 仓库位置类型
+export interface WarehouseLocation {
+  id: number;
+  name: string;
+  code: string | null;
+  description: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface WarehouseLocationInsert {
+  name: string;
+  code?: string;
+  description?: string;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
+// 出库类别类型
+export interface StockOutCategory {
+  id: number;
+  name: string;
+  code: string | null;
+  description: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface StockOutCategoryInsert {
+  name: string;
+  code?: string;
+  description?: string;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
 // 产品类型
 export interface Product {
   id: number;
@@ -95,17 +135,20 @@ export interface Inventory {
   product_id: number;
   serial_number: string;
   status: 'in_stock' | 'out_of_stock' | 'transferred';
+  location_id: number | null;
   location: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string | null;
   products?: Product;
+  warehouse_locations?: WarehouseLocation;
 }
 
 export interface InventoryInsert {
   product_id: number;
   serial_number: string;
   status?: 'in_stock' | 'out_of_stock' | 'transferred';
+  location_id?: number;
   location?: string;
   notes?: string;
 }
@@ -142,6 +185,8 @@ export interface StockOutOrder {
   order_no: string;
   product_id: number;
   customer_id: number | null;
+  category_id: number | null;
+  out_date: string | null;
   quantity: number;
   serial_numbers: string[];
   location: string | null;
@@ -150,12 +195,15 @@ export interface StockOutOrder {
   updated_at: string | null;
   products?: Product;
   customers?: Customer;
+  stock_out_categories?: StockOutCategory;
 }
 
 export interface StockOutOrderInsert {
-  order_no: string;
+  order_no?: string;
   product_id: number;
   customer_id?: number;
+  category_id?: number;
+  out_date?: string;
   quantity: number;
   serial_numbers: string[];
   location?: string;

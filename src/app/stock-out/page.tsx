@@ -1,14 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, Search, X } from 'lucide-react';
+import { Plus, Search, X, Calendar, Tag, User } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
-import type { Product, Customer, StockOutOrder, Inventory } from '@/types';
+import type { Product, Customer, StockOutOrder, Inventory, StockOutCategory } from '@/types';
 
 export default function StockOutPage() {
   const [orders, setOrders] = useState<StockOutOrder[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [categories, setCategories] = useState<StockOutCategory[]>([]);
   const [availableInventory, setAvailableInventory] = useState<Inventory[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -16,6 +17,8 @@ export default function StockOutPage() {
   const [formData, setFormData] = useState({
     product_id: '',
     customer_id: '',
+    category_id: '',
+    out_date: new Date().toISOString().split('T')[0],
     serial_numbers: [] as string[],
     location: '',
     notes: '',
@@ -26,6 +29,7 @@ export default function StockOutPage() {
     fetchOrders();
     fetchProducts();
     fetchCustomers();
+    fetchCategories();
   }, [search]);
 
   useEffect(() => {
@@ -65,6 +69,16 @@ export default function StockOutPage() {
       setCustomers(data.data || []);
     } catch (error) {
       console.error('获取客户列表失败:', error);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch('/api/stock-out-categories');
+      const data = await res.json();
+      setCategories(data.data || []);
+    } catch (error) {
+      console.error('获取出库类别列表失败:', error);
     }
   };
 
@@ -109,6 +123,8 @@ export default function StockOutPage() {
         body: JSON.stringify({
           product_id: parseInt(formData.product_id),
           customer_id: formData.customer_id ? parseInt(formData.customer_id) : null,
+          category_id: formData.category_id ? parseInt(formData.category_id) : null,
+          out_date: formData.out_date || null,
           quantity: formData.serial_numbers.length,
           serial_numbers: formData.serial_numbers,
           location: formData.location || null,
@@ -118,7 +134,15 @@ export default function StockOutPage() {
       
       if (res.ok) {
         setShowModal(false);
-        setFormData({ product_id: '', customer_id: '', serial_numbers: [], location: '', notes: '' });
+        setFormData({ 
+          product_id: '', 
+          customer_id: '', 
+          category_id: '', 
+          out_date: new Date().toISOString().split('T')[0],
+          serial_numbers: [], 
+          location: '', 
+          notes: '' 
+        });
         fetchOrders();
         alert('出库成功！');
       } else {
@@ -129,6 +153,24 @@ export default function StockOutPage() {
       console.error('创建出库单失败:', error);
       alert('创建出库单失败');
     }
+  };
+
+  const getCategoryBadge = (categoryId: number | null) => {
+    const category = categories.find(c => c.id === categoryId);
+    if (!category) return <span className="text-gray-400">-</span>;
+    
+    const colorMap: Record<string, string> = {
+      '销售': 'bg-green-100 text-green-700',
+      '内部': 'bg-blue-100 text-blue-700',
+      '赠送': 'bg-purple-100 text-purple-700',
+    };
+    
+    const className = colorMap[category.name] || 'bg-gray-100 text-gray-700';
+    return (
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${className}`}>
+        {category.name}
+      </span>
+    );
   };
 
   return (
@@ -158,9 +200,11 @@ export default function StockOutPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">出库单号</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">产品</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">客户</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">出库类别</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">出货日期</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">数量</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">序列号</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">出库时间</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">创建时间</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -168,8 +212,26 @@ export default function StockOutPage() {
                   <tr key={order.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.order_no}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.products?.name || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.customers?.name || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.quantity}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {order.customers ? (
+                        <div className="flex items-center">
+                          <User className="h-4 w-4 mr-1 text-gray-400" />
+                          {order.customers.name}
+                        </div>
+                      ) : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {getCategoryBadge(order.category_id)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {order.out_date ? (
+                        <div className="flex items-center">
+                          <Calendar className="h-4 w-4 mr-1 text-gray-400" />
+                          {order.out_date}
+                        </div>
+                      ) : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">{order.quantity}</td>
                     <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{order.serial_numbers?.join(', ') || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(order.created_at).toLocaleString('zh-CN')}</td>
                   </tr>
@@ -195,11 +257,39 @@ export default function StockOutPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">客户</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <User className="h-4 w-4 inline mr-1" />
+                    客户
+                  </label>
                   <select value={formData.customer_id} onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
                     <option value="">请选择客户</option>
                     {customers.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <Tag className="h-4 w-4 inline mr-1" />
+                    出库类别
+                  </label>
+                  <select value={formData.category_id} onChange={(e) => setFormData({ ...formData, category_id: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">请选择类别</option>
+                    {categories.filter(c => c.is_active).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                  </select>
+                  {categories.length === 0 && (
+                    <p className="text-xs text-orange-500 mt-1">暂无出库类别，请先在「出库类别管理」中添加</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <Calendar className="h-4 w-4 inline mr-1" />
+                    出货日期
+                  </label>
+                  <input 
+                    type="date" 
+                    value={formData.out_date} 
+                    onChange={(e) => setFormData({ ...formData, out_date: e.target.value })} 
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" 
+                  />
                 </div>
                 {formData.product_id && (
                   <div>

@@ -1,14 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, Search, X } from 'lucide-react';
+import { Plus, Search, X, MapPin } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
-import type { Product, Supplier, StockInOrder } from '@/types';
+import type { Product, Supplier, StockInOrder, WarehouseLocation } from '@/types';
 
 export default function StockInPage() {
   const [orders, setOrders] = useState<StockInOrder[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [locations, setLocations] = useState<WarehouseLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -17,6 +18,7 @@ export default function StockInPage() {
     supplier_id: '',
     quantity: '',
     unit_price: '',
+    location_id: '',
     location: '',
     notes: '',
   });
@@ -25,6 +27,7 @@ export default function StockInPage() {
     fetchOrders();
     fetchProducts();
     fetchSuppliers();
+    fetchLocations();
   }, [search]);
 
   const fetchOrders = async () => {
@@ -61,6 +64,16 @@ export default function StockInPage() {
     }
   };
 
+  const fetchLocations = async () => {
+    try {
+      const res = await fetch('/api/warehouse-locations');
+      const data = await res.json();
+      setLocations(data.data || []);
+    } catch (error) {
+      console.error('获取仓库位置列表失败:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -73,6 +86,7 @@ export default function StockInPage() {
           supplier_id: formData.supplier_id ? parseInt(formData.supplier_id) : null,
           quantity: parseInt(formData.quantity),
           unit_price: formData.unit_price || null,
+          location_id: formData.location_id ? parseInt(formData.location_id) : null,
           location: formData.location || null,
           notes: formData.notes || null,
         }),
@@ -80,7 +94,7 @@ export default function StockInPage() {
       
       if (res.ok) {
         setShowModal(false);
-        setFormData({ product_id: '', supplier_id: '', quantity: '', unit_price: '', location: '', notes: '' });
+        setFormData({ product_id: '', supplier_id: '', quantity: '', unit_price: '', location_id: '', location: '', notes: '' });
         fetchOrders();
         alert('入库成功！');
       } else {
@@ -138,7 +152,14 @@ export default function StockInPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.products?.name || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.suppliers?.name || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.quantity} {order.products?.unit || ''}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.location || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {order.location ? (
+                        <div className="flex items-center">
+                          <MapPin className="h-4 w-4 mr-1 text-gray-400" />
+                          {order.location}
+                        </div>
+                      ) : '-'}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(order.created_at).toLocaleString('zh-CN')}</td>
                   </tr>
                 ))}
@@ -178,8 +199,37 @@ export default function StockInPage() {
                   <input type="text" value={formData.unit_price} onChange={(e) => setFormData({ ...formData, unit_price: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">存放位置</label>
-                  <input type="text" value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <MapPin className="h-4 w-4 inline mr-1" />
+                    存放位置
+                  </label>
+                  <select 
+                    value={formData.location_id} 
+                    onChange={(e) => {
+                      const selectedLocation = locations.find(l => l.id === parseInt(e.target.value));
+                      setFormData({ 
+                        ...formData, 
+                        location_id: e.target.value,
+                        location: selectedLocation?.name || ''
+                      });
+                    }} 
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">请选择位置</option>
+                    {locations.filter(l => l.is_active).map((l) => (
+                      <option key={l.id} value={l.id}>{l.name} {l.code ? `(${l.code})` : ''}</option>
+                    ))}
+                  </select>
+                  {locations.length === 0 && (
+                    <p className="text-xs text-orange-500 mt-1">暂无仓库位置，请先在「仓库位置」中添加</p>
+                  )}
+                  <input 
+                    type="text" 
+                    value={formData.location} 
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value, location_id: '' })} 
+                    placeholder="或手动输入位置"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 mt-2" 
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">备注</label>

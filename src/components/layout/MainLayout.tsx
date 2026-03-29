@@ -12,7 +12,9 @@ import {
   ArrowRightLeft,
   LayoutDashboard,
   BarChart3,
-  FolderOpen
+  FolderOpen,
+  MapPin,
+  Tag
 } from 'lucide-react';
 
 const navItems = [
@@ -20,11 +22,13 @@ const navItems = [
   { href: '/dashboard', label: '驾驶舱', icon: BarChart3 },
   { href: '/products', label: '产品管理', icon: Package },
   { href: '/product-categories', label: '产品类别', icon: FolderOpen },
+  { href: '/warehouse-locations', label: '仓库位置', icon: MapPin },
   { href: '/suppliers', label: '供应商管理', icon: Users },
   { href: '/customers', label: '客户管理', icon: UserCheck },
   { href: '/inventory', label: '库存查询', icon: PackageSearch },
   { href: '/stock-in', label: '入库管理', icon: LogIn },
   { href: '/stock-out', label: '出库管理', icon: LogOut },
+  { href: '/stock-out-categories', label: '出库类别', icon: Tag },
   { href: '/stock-transfers', label: '库存转移', icon: ArrowRightLeft },
 ];
 

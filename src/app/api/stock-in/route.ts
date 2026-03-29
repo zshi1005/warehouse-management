@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const client = getSupabaseClient();
-    const body: Omit<StockInOrderInsert, 'order_no'> = await request.json();
+    const body: Omit<StockInOrderInsert, 'order_no'> & { location_id?: number } = await request.json();
     
     const orderNo = generateOrderNo();
     
@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
         product_id: body.product_id,
         serial_number: serialNumber,
         status: 'in_stock',
+        location_id: body.location_id || undefined,
         location: body.location,
       });
     }

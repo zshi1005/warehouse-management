@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, text, integer, timestamp, jsonb, index, boolean } from "drizzle-orm/pg-core"
+import { pgTable, serial, varchar, text, integer, timestamp, jsonb, index, boolean, date } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 // 系统表（不要删除）
@@ -22,6 +22,46 @@ export const productCategories = pgTable(
 	(table) => [
 		index("product_categories_name_idx").on(table.name),
 		index("product_categories_sort_order_idx").on(table.sort_order),
+	]
+);
+
+// 仓库位置表
+export const warehouseLocations = pgTable(
+	"warehouse_locations",
+	{
+		id: serial().primaryKey(),
+		name: varchar("name", { length: 100 }).notNull().unique(),
+		code: varchar("code", { length: 50 }),
+		description: text("description"),
+		sort_order: integer("sort_order").default(0),
+		is_active: boolean("is_active").default(true).notNull(),
+		created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updated_at: timestamp("updated_at", { withTimezone: true }),
+	},
+	(table) => [
+		index("warehouse_locations_name_idx").on(table.name),
+		index("warehouse_locations_code_idx").on(table.code),
+		index("warehouse_locations_sort_order_idx").on(table.sort_order),
+	]
+);
+
+// 出库类别表
+export const stockOutCategories = pgTable(
+	"stock_out_categories",
+	{
+		id: serial().primaryKey(),
+		name: varchar("name", { length: 100 }).notNull().unique(),
+		code: varchar("code", { length: 50 }),
+		description: text("description"),
+		sort_order: integer("sort_order").default(0),
+		is_active: boolean("is_active").default(true).notNull(),
+		created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updated_at: timestamp("updated_at", { withTimezone: true }),
+	},
+	(table) => [
+		index("stock_out_categories_name_idx").on(table.name),
+		index("stock_out_categories_code_idx").on(table.code),
+		index("stock_out_categories_sort_order_idx").on(table.sort_order),
 	]
 );
 
@@ -97,6 +137,7 @@ export const inventory = pgTable(
 		product_id: integer("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
 		serial_number: varchar("serial_number", { length: 100 }).notNull().unique(),
 		status: varchar("status", { length: 20 }).notNull().default('in_stock'), // in_stock, out_of_stock, transferred
+		location_id: integer("location_id").references(() => warehouseLocations.id),
 		location: varchar("location", { length: 200 }),
 		notes: text("notes"),
 		created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -106,6 +147,7 @@ export const inventory = pgTable(
 		index("inventory_product_id_idx").on(table.product_id),
 		index("inventory_serial_number_idx").on(table.serial_number),
 		index("inventory_status_idx").on(table.status),
+		index("inventory_location_id_idx").on(table.location_id),
 	]
 );
 
@@ -140,6 +182,8 @@ export const stockOutOrders = pgTable(
 		order_no: varchar("order_no", { length: 50 }).notNull().unique(),
 		product_id: integer("product_id").notNull().references(() => products.id),
 		customer_id: integer("customer_id").references(() => customers.id),
+		category_id: integer("category_id").references(() => stockOutCategories.id),
+		out_date: date("out_date"),
 		quantity: integer("quantity").notNull(),
 		serial_numbers: jsonb("serial_numbers").notNull(), // 存储序列号数组
 		location: varchar("location", { length: 200 }),
@@ -151,6 +195,8 @@ export const stockOutOrders = pgTable(
 		index("stock_out_orders_order_no_idx").on(table.order_no),
 		index("stock_out_orders_product_id_idx").on(table.product_id),
 		index("stock_out_orders_customer_id_idx").on(table.customer_id),
+		index("stock_out_orders_category_id_idx").on(table.category_id),
+		index("stock_out_orders_out_date_idx").on(table.out_date),
 		index("stock_out_orders_created_at_idx").on(table.created_at),
 	]
 );
