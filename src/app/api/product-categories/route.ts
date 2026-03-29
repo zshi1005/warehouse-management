@@ -1,33 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import type { Product, ProductInsert } from '@/types';
+import type { ProductCategory, ProductCategoryInsert } from '@/types';
 
-// GET - 获取所有产品
+// GET - 获取所有产品类别
 export async function GET(request: NextRequest) {
   try {
     const client = getSupabaseClient();
     const searchParams = request.nextUrl.searchParams;
     const search = searchParams.get('search');
-    const categoryId = searchParams.get('category_id');
     
     let query = client
-      .from('products')
-      .select(`
-        *,
-        product_categories (
-          id,
-          name,
-          description
-        )
-      `)
-      .order('created_at', { ascending: false });
+      .from('product_categories')
+      .select('*')
+      .order('sort_order', { ascending: true });
     
     if (search) {
-      query = query.or(`name.ilike.%${search}%,specification.ilike.%${search}%,model.ilike.%${search}%`);
-    }
-    
-    if (categoryId) {
-      query = query.eq('category_id', parseInt(categoryId));
+      query = query.ilike('name', `%${search}%`);
     }
     
     const { data, error } = await query;
@@ -36,42 +24,35 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
     
-    return NextResponse.json({ data: data as Product[] });
+    return NextResponse.json({ data: data as ProductCategory[] });
   } catch (error) {
     return NextResponse.json(
-      { error: '获取产品列表失败' },
+      { error: '获取产品类别列表失败' },
       { status: 500 }
     );
   }
 }
 
-// POST - 创建新产品
+// POST - 创建新产品类别
 export async function POST(request: NextRequest) {
   try {
     const client = getSupabaseClient();
-    const body: ProductInsert = await request.json();
+    const body: ProductCategoryInsert = await request.json();
     
     const { data, error } = await client
-      .from('products')
+      .from('product_categories')
       .insert(body)
-      .select(`
-        *,
-        product_categories (
-          id,
-          name,
-          description
-        )
-      `)
+      .select()
       .single();
     
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
     
-    return NextResponse.json({ data: data as Product });
+    return NextResponse.json({ data: data as ProductCategory });
   } catch (error) {
     return NextResponse.json(
-      { error: '创建产品失败' },
+      { error: '创建产品类别失败' },
       { status: 500 }
     );
   }

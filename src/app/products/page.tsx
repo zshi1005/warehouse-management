@@ -3,16 +3,19 @@
 import { useEffect, useState } from 'react';
 import { Plus, Search, Edit2, Trash2, X } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
-import type { Product, ProductInsert } from '@/types';
+import type { Product, ProductInsert, ProductCategory } from '@/types';
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState<ProductInsert>({
     name: '',
+    category_id: undefined,
     specification: '',
     model: '',
     unit: '个',
@@ -22,12 +25,17 @@ export default function ProductsPage() {
 
   useEffect(() => {
     fetchProducts();
-  }, [search]);
+    fetchCategories();
+  }, [search, categoryFilter]);
 
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const url = search ? `/api/products?search=${encodeURIComponent(search)}` : '/api/products';
+      const params = new URLSearchParams();
+      if (search) params.append('search', search);
+      if (categoryFilter) params.append('category_id', categoryFilter);
+      
+      const url = params.toString() ? `/api/products?${params.toString()}` : '/api/products';
       const res = await fetch(url);
       const data = await res.json();
       setProducts(data.data || []);
@@ -38,6 +46,16 @@ export default function ProductsPage() {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch('/api/product-categories');
+      const data = await res.json();
+      setCategories(data.data || []);
+    } catch (error) {
+      console.error('获取类别列表失败:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -45,10 +63,15 @@ export default function ProductsPage() {
       const url = editingProduct ? `/api/products/${editingProduct.id}` : '/api/products';
       const method = editingProduct ? 'PUT' : 'POST';
       
+      const submitData = {
+        ...formData,
+        category_id: formData.category_id || null,
+      };
+      
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       });
       
       if (res.ok) {
@@ -56,6 +79,7 @@ export default function ProductsPage() {
         setEditingProduct(null);
         setFormData({
           name: '',
+          category_id: undefined,
           specification: '',
           model: '',
           unit: '个',
@@ -73,6 +97,7 @@ export default function ProductsPage() {
     setEditingProduct(product);
     setFormData({
       name: product.name,
+      category_id: product.category_id || undefined,
       specification: product.specification || '',
       model: product.model || '',
       unit: product.unit,
@@ -99,6 +124,7 @@ export default function ProductsPage() {
     setEditingProduct(null);
     setFormData({
       name: '',
+      category_id: undefined,
       specification: '',
       model: '',
       unit: '个',
@@ -106,6 +132,12 @@ export default function ProductsPage() {
       is_active: true,
     });
     setShowModal(true);
+  };
+
+  const getCategoryName = (categoryId: number | null) => {
+    if (!categoryId) return '-';
+    const category = categories.find(c => c.id === categoryId);
+    return category?.name || '-';
   };
 
   return (
@@ -122,8 +154,8 @@ export default function ProductsPage() {
           </button>
         </div>
 
-        {/* 搜索栏 */}
-        <div className="mb-6">
+        {/* 搜索和筛选栏 */}
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
@@ -134,6 +166,18 @@ export default function ProductsPage() {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">全部类别</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* 产品列表 */}
@@ -153,6 +197,9 @@ export default function ProductsPage() {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     产品名称
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    类别
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     规格
@@ -178,6 +225,15 @@ export default function ProductsPage() {
                       <div className="text-sm font-medium text-gray-900">{product.name}</div>
                       {product.description && (
                         <div className="text-sm text-gray-500">{product.description}</div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {product.product_categories ? (
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700">
+                          {product.product_categories.name}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-sm">-</span>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -247,6 +303,24 @@ export default function ProductsPage() {
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      产品类别
+                    </label>
+                    <select
+                      value={formData.category_id || ''}
+                      onChange={(e) => setFormData({ ...formData, category_id: e.target.value ? parseInt(e.target.value) : undefined })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">请选择类别</option>
+                      {categories.filter(c => c.is_active).map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>

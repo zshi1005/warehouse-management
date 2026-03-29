@@ -1,7 +1,26 @@
+// 产品类别类型
+export interface ProductCategory {
+  id: number;
+  name: string;
+  description: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface ProductCategoryInsert {
+  name: string;
+  description?: string;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
 // 产品类型
 export interface Product {
   id: number;
   name: string;
+  category_id: number | null;
   specification: string | null;
   model: string | null;
   unit: string;
@@ -9,10 +28,12 @@ export interface Product {
   is_active: boolean;
   created_at: string;
   updated_at: string | null;
+  product_categories?: ProductCategory;
 }
 
 export interface ProductInsert {
   name: string;
+  category_id?: number;
   specification?: string;
   model?: string;
   unit?: string;

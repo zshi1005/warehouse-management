@@ -7,12 +7,31 @@ export const healthCheck = pgTable("health_check", {
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 });
 
+// 产品类别表
+export const productCategories = pgTable(
+	"product_categories",
+	{
+		id: serial().primaryKey(),
+		name: varchar("name", { length: 100 }).notNull().unique(),
+		description: text("description"),
+		sort_order: integer("sort_order").default(0),
+		is_active: boolean("is_active").default(true).notNull(),
+		created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updated_at: timestamp("updated_at", { withTimezone: true }),
+	},
+	(table) => [
+		index("product_categories_name_idx").on(table.name),
+		index("product_categories_sort_order_idx").on(table.sort_order),
+	]
+);
+
 // 产品表
 export const products = pgTable(
 	"products",
 	{
 		id: serial().primaryKey(),
 		name: varchar("name", { length: 200 }).notNull(),
+		category_id: integer("category_id").references(() => productCategories.id),
 		specification: varchar("specification", { length: 200 }),
 		model: varchar("model", { length: 100 }),
 		unit: varchar("unit", { length: 20 }).notNull().default('个'),
@@ -23,6 +42,7 @@ export const products = pgTable(
 	},
 	(table) => [
 		index("products_name_idx").on(table.name),
+		index("products_category_id_idx").on(table.category_id),
 		index("products_is_active_idx").on(table.is_active),
 	]
 );

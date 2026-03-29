@@ -7,6 +7,8 @@ import MainLayout from '@/components/layout/MainLayout';
 interface Product {
   id: number;
   name: string;
+  category_id: number | null;
+  category_name: string | null;
   specification: string | null;
   model: string | null;
   unit: string;
@@ -41,27 +43,41 @@ interface OverallStats {
   transferred_count: number;
 }
 
+interface Category {
+  id: number;
+  name: string;
+}
+
 export default function DashboardPage() {
   const [productStats, setProductStats] = useState<ProductStat[]>([]);
   const [overallStats, setOverallStats] = useState<OverallStats | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedProduct, setExpandedProduct] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [categoryFilter]);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/dashboard');
+      const params = new URLSearchParams();
+      if (categoryFilter) {
+        params.append('category_id', categoryFilter);
+      }
+      const res = await fetch(`/api/dashboard?${params.toString()}`);
       const data = await res.json();
       
       if (data.data) {
         setProductStats(data.data.products || []);
         setOverallStats(data.data.overall || null);
+        if (data.data.categories) {
+          setCategories(data.data.categories);
+        }
       }
     } catch (error) {
       console.error('获取驾驶舱数据失败:', error);
@@ -72,7 +88,12 @@ export default function DashboardPage() {
 
   const fetchProductInventory = async (productId: number) => {
     try {
-      const res = await fetch(`/api/dashboard?product_id=${productId}`);
+      const params = new URLSearchParams();
+      params.append('product_id', productId.toString());
+      if (categoryFilter) {
+        params.append('category_id', categoryFilter);
+      }
+      const res = await fetch(`/api/dashboard?${params.toString()}`);
       const data = await res.json();
       
       if (data.data) {
@@ -187,6 +208,16 @@ export default function DashboardPage() {
             />
           </div>
           <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">全部类别</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
+            ))}
+          </select>
+          <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -221,6 +252,11 @@ export default function DashboardPage() {
                     <div className="flex-1">
                       <div className="flex items-center">
                         <h3 className="text-lg font-semibold text-gray-900">{ps.product.name}</h3>
+                        {ps.product.category_name && (
+                          <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">
+                            {ps.product.category_name}
+                          </span>
+                        )}
                         <span className="ml-2 text-sm text-gray-500">
                           {ps.product.specification} {ps.product.model}
                         </span>
@@ -307,6 +343,7 @@ export default function DashboardPage() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">产品名称</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">类别</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">规格型号</th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">累计入库</th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">累计出库</th>
@@ -320,6 +357,9 @@ export default function DashboardPage() {
                   <tr key={ps.product.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {ps.product.name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {ps.product.category_name || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {ps.product.specification || '-'} {ps.product.model || ''}

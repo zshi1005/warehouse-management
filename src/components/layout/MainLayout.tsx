@@ -11,13 +11,15 @@ import {
   LogOut,
   ArrowRightLeft,
   LayoutDashboard,
-  BarChart3
+  BarChart3,
+  FolderOpen
 } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: '仪表盘', icon: LayoutDashboard },
   { href: '/dashboard', label: '驾驶舱', icon: BarChart3 },
   { href: '/products', label: '产品管理', icon: Package },
+  { href: '/product-categories', label: '产品类别', icon: FolderOpen },
   { href: '/suppliers', label: '供应商管理', icon: Users },
   { href: '/customers', label: '客户管理', icon: UserCheck },
   { href: '/inventory', label: '库存查询', icon: PackageSearch },

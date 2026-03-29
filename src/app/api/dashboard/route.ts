@@ -7,13 +7,27 @@ export async function GET(request: NextRequest) {
     const client = getSupabaseClient();
     const searchParams = request.nextUrl.searchParams;
     const productId = searchParams.get('product_id');
+    const categoryId = searchParams.get('category_id');
 
-    // 获取所有产品
-    const { data: products, error: productsError } = await client
+    // 获取所有产品（包含类别信息）
+    let productsQuery = client
       .from('products')
-      .select('*')
+      .select(`
+        *,
+        product_categories (
+          id,
+          name,
+          description
+        )
+      `)
       .eq('is_active', true)
       .order('name');
+    
+    if (categoryId) {
+      productsQuery = productsQuery.eq('category_id', parseInt(categoryId));
+    }
+    
+    const { data: products, error: productsError } = await productsQuery;
 
     if (productsError) {
       return NextResponse.json({ error: productsError.message }, { status: 500 });
@@ -54,6 +68,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: stockOutError.message }, { status: 500 });
     }
 
+    // 获取所有类别（用于筛选）
+    const { data: categories, error: categoriesError } = await client
+      .from('product_categories')
+      .select('id, name')
+      .eq('is_active', true)
+      .order('sort_order');
+
+    if (categoriesError) {
+      return NextResponse.json({ error: categoriesError.message }, { status: 500 });
+    }
+
     // 组装统计数据
     const productStats = products.map(product => {
       const productInventory = inventory.filter(i => i.product_id === product.id);
@@ -73,6 +98,8 @@ export async function GET(request: NextRequest) {
         product: {
           id: product.id,
           name: product.name,
+          category_id: product.category_id,
+          category_name: product.product_categories?.name || null,
           specification: product.specification,
           model: product.model,
           unit: product.unit,
@@ -102,6 +129,7 @@ export async function GET(request: NextRequest) {
       data: {
         products: productStats,
         overall: overallStats,
+        categories: categories || [],
       }
     });
   } catch (error) {
