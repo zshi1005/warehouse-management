@@ -132,6 +132,20 @@ CREATE TABLE warehouse_locations (
   updated_at TIMESTAMPTZ
 );
 
+-- 工地表（用于库存转移的来源和目的地）
+CREATE TABLE construction_sites (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(200) NOT NULL,
+  code VARCHAR(50),
+  address TEXT,
+  contact_person VARCHAR(100),
+  contact_phone VARCHAR(50),
+  description TEXT,
+  is_active BOOLEAN DEFAULT true NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMPTZ
+);
+
 -- 入库类别表
 CREATE TABLE stock_in_categories (
   id SERIAL PRIMARY KEY,
@@ -217,15 +231,18 @@ CREATE TABLE inventory (
   updated_at TIMESTAMPTZ
 );
 
--- 库存转移表
+-- 库存转移表（从已出库的内部使用设备转移）
 CREATE TABLE stock_transfers (
   id SERIAL PRIMARY KEY,
+  transfer_no VARCHAR(50) NOT NULL UNIQUE,
   product_id INTEGER NOT NULL REFERENCES products(id),
-  from_location_id INTEGER REFERENCES warehouse_locations(id),
-  to_location_id INTEGER REFERENCES warehouse_locations(id),
-  quantity INTEGER NOT NULL,
+  inventory_id INTEGER NOT NULL REFERENCES inventory(id),
+  serial_number VARCHAR(100) NOT NULL,
+  from_site_id INTEGER REFERENCES construction_sites(id) ON DELETE SET NULL,
+  to_site_id INTEGER REFERENCES construction_sites(id) ON DELETE SET NULL,
   notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMPTZ
 );
 
 -- 创建索引
