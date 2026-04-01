@@ -39,6 +39,33 @@ export default function StockInPage() {
     fetchProducts();
     fetchSuppliers();
     fetchLocations();
+    
+    // 读取快速采购的产品ID
+    const quickPurchaseData = localStorage.getItem('quickPurchaseProducts');
+    if (quickPurchaseData) {
+      try {
+        const productIds: number[] = JSON.parse(quickPurchaseData);
+        if (productIds.length > 0) {
+          setShowModal(true);
+          // 自动填充产品
+          const items: OrderItem[] = productIds.map(productId => ({
+            product_id: productId,
+            quantity: 1,
+            unit_price: '',
+            location_id: null,
+            location: '',
+            serial_numbers: [],
+            serial_input: '',
+            notes: '',
+          }));
+          setOrderItems(items);
+        }
+        // 清除localStorage
+        localStorage.removeItem('quickPurchaseProducts');
+      } catch (e) {
+        console.error('Failed to parse quick purchase data:', e);
+      }
+    }
   }, [search]);
 
   const fetchOrders = async () => {

@@ -350,3 +350,46 @@ export interface InventoryStats {
   outOfStockQuantity: number;
   transferredQuantity: number;
 }
+
+// 盘点单类型
+export interface StockCheckOrder {
+  id: number;
+  check_no: string;
+  check_date: string | null;
+  total_items: number;
+  status: 'pending' | 'completed' | 'cancelled';
+  notes: string | null;
+  created_at: string;
+  updated_at: string | null;
+  items?: StockCheckItem[];
+}
+
+export interface StockCheckItem {
+  id: number;
+  check_id: number;
+  product_id: number;
+  system_quantity: number;
+  actual_quantity: number;
+  difference: number;
+  notes: string | null;
+  created_at: string;
+  products?: Product;
+}
+
+export interface StockCheckOrderInsert {
+  check_no?: string;
+  check_date?: string;
+  total_items?: number;
+  status?: 'pending' | 'completed' | 'cancelled';
+  notes?: string;
+  items?: StockCheckItemInsert[];
+}
+
+export interface StockCheckItemInsert {
+  check_id?: number;
+  product_id: number;
+  system_quantity: number;
+  actual_quantity: number;
+  difference?: number;
+  notes?: string;
+}

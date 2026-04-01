@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, Package, MapPin, AlertTriangle, TrendingUp, TrendingDown, ArrowRightLeft } from 'lucide-react';
+import { Search, Package, MapPin, AlertTriangle, TrendingUp, TrendingDown, ArrowRightLeft, ShoppingCart, ClipboardCheck, X, Check, Trash2, FileText, Calendar } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
-import type { Inventory, WarehouseLocation, Product } from '@/types';
+import type { Inventory, WarehouseLocation, Product, StockCheckOrder, StockCheckItemInsert } from '@/types';
 
 interface InventoryStats {
   total: number;
@@ -26,6 +26,19 @@ export default function InventoryPage() {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterProduct, setFilterProduct] = useState('');
   const [filterLocation, setFilterLocation] = useState('');
+
+  // 盘点相关状态
+  const [showCheckModal, setShowCheckModal] = useState(false);
+  const [checkItems, setCheckItems] = useState<Array<{
+    product_id: number;
+    product_name: string;
+    system_quantity: number;
+    actual_quantity: number;
+    unit: string;
+  }>>([]);
+  const [checkNotes, setCheckNotes] = useState('');
+  const [checkOrders, setCheckOrders] = useState<StockCheckOrder[]>([]);
+  const [showCheckHistory, setShowCheckHistory] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -78,11 +91,31 @@ export default function InventoryPage() {
     }
   };
 
+  const fetchCheckOrders = async () => {
+    try {
+      const res = await fetch('/api/stock-check');
+      const data = await res.json();
+      setCheckOrders(data.data || []);
+    } catch (error) {
+      console.error('获取盘点记录失败:', error);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; className: string }> = {
       in_stock: { label: '在库', className: 'bg-green-100 text-green-700' },
       out_of_stock: { label: '已出库', className: 'bg-orange-100 text-orange-700' },
       transferred: { label: '已转移', className: 'bg-purple-100 text-purple-700' },
+    };
+    const config = statusMap[status] || { label: status, className: 'bg-gray-100 text-gray-700' };
+    return <span className={`px-2 py-1 text-xs font-medium rounded-full ${config.className}`}>{config.label}</span>;
+  };
+
+  const getCheckStatusBadge = (status: string) => {
+    const statusMap: Record<string, { label: string; className: string }> = {
+      pending: { label: '待处理', className: 'bg-yellow-100 text-yellow-700' },
+      completed: { label: '已完成', className: 'bg-green-100 text-green-700' },
+      cancelled: { label: '已取消', className: 'bg-gray-100 text-gray-700' },
     };
     const config = statusMap[status] || { label: status, className: 'bg-gray-100 text-gray-700' };
     return <span className={`px-2 py-1 text-xs font-medium rounded-full ${config.className}`}>{config.label}</span>;
@@ -111,12 +144,133 @@ export default function InventoryPage() {
     return p.stats.in_stock === 0;
   });
 
+  // 快速采购 - 跳转到入库页面
+  const handleQuickPurchase = (productIds?: number[]) => {
+    const ids = productIds || outOfStockProducts.map(p => p.id);
+    if (ids.length > 0) {
+      localStorage.setItem('quickPurchaseProducts', JSON.stringify(ids));
+      window.location.href = '/stock-in';
+    }
+  };
+
+  // 打开盘点模态框
+  const openCheckModal = () => {
+    const items = products
+      .filter(p => p.stats && p.stats.in_stock > 0)
+      .map(p => ({
+        product_id: p.id,
+        product_name: p.name,
+        system_quantity: p.stats!.in_stock,
+        actual_quantity: p.stats!.in_stock,
+        unit: p.unit,
+      }));
+    setCheckItems(items);
+    setCheckNotes('');
+    setShowCheckModal(true);
+  };
+
+  // 更新盘点数量
+  const updateCheckItem = (productId: number, actualQuantity: number) => {
+    setCheckItems(items =>
+      items.map(item =>
+        item.product_id === productId
+          ? { ...item, actual_quantity: actualQuantity }
+          : item
+      )
+    );
+  };
+
+  // 提交盘点
+  const submitCheck = async () => {
+    try {
+      const items: StockCheckItemInsert[] = checkItems.map(item => ({
+        product_id: item.product_id,
+        system_quantity: item.system_quantity,
+        actual_quantity: item.actual_quantity,
+        difference: item.actual_quantity - item.system_quantity,
+      }));
+
+      const res = await fetch('/api/stock-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          check_date: new Date().toISOString().split('T')[0],
+          notes: checkNotes,
+          items,
+        }),
+      });
+
+      if (res.ok) {
+        alert('盘点单创建成功！');
+        setShowCheckModal(false);
+        fetchProducts();
+      } else {
+        const error = await res.json();
+        alert(`盘点失败: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('盘点失败:', error);
+      alert('盘点失败');
+    }
+  };
+
+  // 完成盘点（调整库存）
+  const completeCheck = async (orderId: number, items: any[]) => {
+    if (!confirm('确认完成盘点？将根据盘点结果调整库存。')) return;
+    
+    try {
+      const res = await fetch(`/api/stock-check/${orderId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'completed', items }),
+      });
+
+      if (res.ok) {
+        alert('盘点完成，库存已调整！');
+        fetchCheckOrders();
+        fetchProducts();
+      } else {
+        const error = await res.json();
+        alert(`操作失败: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('操作失败:', error);
+      alert('操作失败');
+    }
+  };
+
+  // 删除盘点单
+  const deleteCheck = async (orderId: number) => {
+    if (!confirm('确定要删除此盘点单吗？')) return;
+    
+    try {
+      const res = await fetch(`/api/stock-check/${orderId}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchCheckOrders();
+      }
+    } catch (error) {
+      console.error('删除失败:', error);
+    }
+  };
+
   return (
     <MainLayout>
       <div>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-900">库存查询</h2>
           <div className="flex gap-2">
+            <button
+              onClick={openCheckModal}
+              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
+              <ClipboardCheck className="h-5 w-5 mr-2" />库存盘点
+            </button>
+            <button
+              onClick={() => { fetchCheckOrders(); setShowCheckHistory(true); }}
+              className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            >
+              <FileText className="h-5 w-5 mr-2" />盘点记录
+            </button>
             <button
               onClick={() => setViewMode('summary')}
               className={`px-4 py-2 rounded-lg ${viewMode === 'summary' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
@@ -177,14 +331,29 @@ export default function InventoryPage() {
           <div className="mb-6 space-y-4">
             {outOfStockProducts.length > 0 && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="flex items-center mb-2">
-                  <AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
-                  <span className="font-semibold text-red-700">缺货预警 ({outOfStockProducts.length} 个产品)</span>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center">
+                    <AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
+                    <span className="font-semibold text-red-700">缺货预警 ({outOfStockProducts.length} 个产品)</span>
+                  </div>
+                  <button
+                    onClick={() => handleQuickPurchase()}
+                    className="flex items-center px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700"
+                  >
+                    <ShoppingCart className="h-4 w-4 mr-1" />立即采购
+                  </button>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {outOfStockProducts.map(p => (
-                    <span key={p.id} className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm">
+                    <span key={p.id} className="inline-flex items-center px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm">
                       {p.name}
+                      <button
+                        onClick={() => handleQuickPurchase([p.id])}
+                        className="ml-2 text-red-600 hover:text-red-800"
+                        title="采购此产品"
+                      >
+                        <ShoppingCart className="h-3 w-3" />
+                      </button>
                     </span>
                   ))}
                 </div>
@@ -192,14 +361,29 @@ export default function InventoryPage() {
             )}
             {lowStockProducts.length > 0 && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <div className="flex items-center mb-2">
-                  <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2" />
-                  <span className="font-semibold text-yellow-700">库存不足预警 ({lowStockProducts.length} 个产品)</span>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center">
+                    <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2" />
+                    <span className="font-semibold text-yellow-700">库存不足预警 ({lowStockProducts.length} 个产品)</span>
+                  </div>
+                  <button
+                    onClick={() => handleQuickPurchase(lowStockProducts.map(p => p.id))}
+                    className="flex items-center px-3 py-1.5 bg-yellow-600 text-white text-sm rounded-lg hover:bg-yellow-700"
+                  >
+                    <ShoppingCart className="h-4 w-4 mr-1" />补充库存
+                  </button>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {lowStockProducts.map(p => (
-                    <span key={p.id} className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm">
+                    <span key={p.id} className="inline-flex items-center px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm">
                       {p.name} (剩余: {p.stats?.in_stock || 0})
+                      <button
+                        onClick={() => handleQuickPurchase([p.id])}
+                        className="ml-2 text-yellow-600 hover:text-yellow-800"
+                        title="采购此产品"
+                      >
+                        <ShoppingCart className="h-3 w-3" />
+                      </button>
                     </span>
                   ))}
                 </div>
@@ -220,6 +404,7 @@ export default function InventoryPage() {
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">已出库数量</th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">已转移</th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">状态</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">操作</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -282,6 +467,17 @@ export default function InventoryPage() {
                           </span>
                         )}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        {(isOut || isLow) && (
+                          <button
+                            onClick={() => handleQuickPurchase([product.id])}
+                            className="text-blue-600 hover:text-blue-700"
+                            title="采购"
+                          >
+                            <ShoppingCart className="h-5 w-5" />
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -291,7 +487,6 @@ export default function InventoryPage() {
         ) : (
           /* 明细查询视图 */
           <>
-            {/* 筛选栏 */}
             <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -335,7 +530,6 @@ export default function InventoryPage() {
               </select>
             </div>
 
-            {/* 库存列表 */}
             {loading ? (
               <div className="text-center py-12">加载中...</div>
             ) : inventory.length === 0 ? (
@@ -383,6 +577,161 @@ export default function InventoryPage() {
               </div>
             )}
           </>
+        )}
+
+        {/* 盘点模态框 */}
+        {showCheckModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold flex items-center">
+                  <ClipboardCheck className="h-5 w-5 mr-2 text-green-600" />
+                  库存盘点
+                </h3>
+                <button onClick={() => setShowCheckModal(false)}>
+                  <X className="h-5 w-5 text-gray-500" />
+                </button>
+              </div>
+
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                请核对实际库存数量，系统将自动计算差异。
+              </div>
+
+              <table className="min-w-full divide-y divide-gray-200 border rounded-lg">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">产品</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">系统库存</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">实际库存</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">差异</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {checkItems.map((item) => {
+                    const diff = item.actual_quantity - item.system_quantity;
+                    return (
+                      <tr key={item.product_id}>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.product_name}</td>
+                        <td className="px-4 py-3 text-center text-sm text-gray-600">{item.system_quantity} {item.unit}</td>
+                        <td className="px-4 py-3 text-center">
+                          <input
+                            type="number"
+                            min="0"
+                            value={item.actual_quantity}
+                            onChange={(e) => updateCheckItem(item.product_id, parseInt(e.target.value) || 0)}
+                            className="w-24 px-3 py-1.5 border rounded text-center focus:ring-2 focus:ring-blue-500"
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`font-semibold ${diff > 0 ? 'text-green-600' : diff < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                            {diff > 0 ? `+${diff}` : diff}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                <input
+                  type="text"
+                  value={checkNotes}
+                  onChange={(e) => setCheckNotes(e.target.value)}
+                  placeholder="盘点备注..."
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <button onClick={() => setShowCheckModal(false)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">取消</button>
+                <button onClick={submitCheck} className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                  <Check className="h-4 w-4 mr-2" />确认盘点
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 盘点记录模态框 */}
+        {showCheckHistory && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold flex items-center">
+                  <FileText className="h-5 w-5 mr-2 text-gray-600" />
+                  盘点记录
+                </h3>
+                <button onClick={() => setShowCheckHistory(false)}>
+                  <X className="h-5 w-5 text-gray-500" />
+                </button>
+              </div>
+
+              {checkOrders.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">暂无盘点记录</div>
+              ) : (
+                <div className="space-y-4">
+                  {checkOrders.map((order) => (
+                    <div key={order.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-900">{order.check_no}</span>
+                            {getCheckStatusBadge(order.status)}
+                          </div>
+                          <div className="text-sm text-gray-500 mt-1 flex items-center gap-4">
+                            <span className="flex items-center"><Calendar className="h-4 w-4 mr-1" />{order.check_date || '未指定日期'}</span>
+                            <span>共 {order.total_items} 项</span>
+                          </div>
+                          {order.notes && <div className="text-sm text-gray-600 mt-1">{order.notes}</div>}
+                        </div>
+                        <div className="flex gap-2">
+                          {order.status === 'pending' && (
+                            <button onClick={() => completeCheck(order.id, order.items || [])} className="text-green-600 hover:text-green-700">
+                              <Check className="h-5 w-5" />
+                            </button>
+                          )}
+                          <button onClick={() => deleteCheck(order.id)} className="text-red-600 hover:text-red-700">
+                            <Trash2 className="h-5 w-5" />
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {order.items && order.items.length > 0 && (
+                        <div className="mt-3 border-t pt-3">
+                          <table className="min-w-full text-sm">
+                            <thead>
+                              <tr className="text-gray-500">
+                                <th className="text-left py-1">产品</th>
+                                <th className="text-center py-1">系统</th>
+                                <th className="text-center py-1">实际</th>
+                                <th className="text-center py-1">差异</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {order.items.map((item: any) => (
+                                <tr key={item.id} className="border-t">
+                                  <td className="py-2">{item.products?.name || '-'}</td>
+                                  <td className="text-center py-2">{item.system_quantity}</td>
+                                  <td className="text-center py-2">{item.actual_quantity}</td>
+                                  <td className="text-center py-2">
+                                    <span className={item.difference > 0 ? 'text-green-600' : item.difference < 0 ? 'text-red-600' : ''}>
+                                      {item.difference > 0 ? `+${item.difference}` : item.difference}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </MainLayout>
