@@ -84,7 +84,8 @@
     "react-dev-inspector": "^2.0.1",
     "shadcn": "latest",
     "tailwindcss": "^4",
-    "tsup": "^8.3.5"
+    "tsup": "^8.3.5",
+    "tsx": "^4.21.0"
   },
   "packageManager": "pnpm@9.0.0",
   "engines": {
