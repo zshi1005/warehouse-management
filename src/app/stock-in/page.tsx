@@ -197,6 +197,29 @@ export default function StockInPage() {
     setOrderItems([]);
   };
 
+  const handleDeleteOrder = async (orderId: number, orderNo: string) => {
+    if (!confirm(`${language === 'zh' ? '确定要删除入库单' : 'Are you sure you want to delete stock in order'} "${orderNo}"?\n${language === 'zh' ? '相关的库存记录也会被删除（仅限未出库的产品）' : 'Related inventory records will also be deleted (only in-stock items)'}`)) {
+      return;
+    }
+    
+    try {
+      const res = await fetch(`/api/stock-in/${orderId}`, {
+        method: 'DELETE',
+      });
+      
+      if (res.ok) {
+        fetchOrders();
+        alert(language === 'zh' ? '删除成功' : 'Deleted successfully');
+      } else {
+        const error = await res.json();
+        alert(`${language === 'zh' ? '删除失败' : 'Delete failed'}: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Failed to delete order:', error);
+      alert(language === 'zh' ? '删除失败' : 'Delete failed');
+    }
+  };
+
   const getProductById = (productId: number) => {
     return products.find(p => p.id === productId);
   };
@@ -238,6 +261,7 @@ export default function StockInPage() {
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{t.stockIn.totalQuantity}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.stockIn.inDate}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.common.createdAt}</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{t.common.actions}</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -282,6 +306,15 @@ export default function StockInPage() {
                       ) : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(order.created_at).toLocaleString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <button
+                        onClick={() => handleDeleteOrder(order.id, order.order_no)}
+                        className="text-red-600 hover:text-red-700"
+                        title={t.common.delete}
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
